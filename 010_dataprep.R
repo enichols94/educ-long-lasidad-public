@@ -198,8 +198,6 @@ for (var in tests){
 
 # PREP LASI VARIABLES ----------------------------------------------------------------
 
-## stopped here
-
 lasi_copy <- copy(lasi_dt)
 
 ## SET NAMES AND RESTRICT VARIABLES
@@ -226,22 +224,39 @@ lasi_copy[, consumptionq := factor(case_when(consumptionq == 1 ~ "Quintile 1",
 lasi_copy[, c("consumption_foodweek", "consumption_nonfoodmonth", "consumption_nonfoodyear") := NULL]
 
 ## EDUCATION VARIABLES
-educ_vars <- c("educ", "educ_mom", "educ_dad")
-lasi_copy[, (educ_vars) := lapply(.SD, function(x) factor(case_when(x == 0 ~ "No school", 
-                                                                    x == 1 ~ "Less than primary", 
-                                                                    x == 2 ~ "Primary school", 
-                                                                    x %in% 3:4 ~ "Middle-secondary school", 
-                                                                    x > 4 ~ "Higher secondary school and up"), 
-                                                          levels = c("No school", "Less than primary", "Primary school", 
-                                                                     "Middle-secondary school", "Higher secondary school and up"))), .SDcols = educ_vars]
-lasi_copy[, educ3 := factor(fcase(educ == "No school", "No school", 
-                                  educ %in% c("Less than primary", "Primary school"), "Less than primary or primary school", 
-                                  educ %in% c("Middle-secondary school", "Higher secondary school and up"), "Middle-secondary school and up"), 
-                            levels = c("No school", "Less than primary or primary school", "Middle-secondary school and up"))]
+lasi_copy[, educ := factor(case_when(educ == 0 ~ "No school", 
+                           educ == 1 ~ "Less than primary", 
+                           educ == 2 ~ "Primary school", 
+                           educ %in% 3:4 ~ "Middle-secondary school", 
+                           educ > 4 ~ "Higher secondary school and up"), 
+                    levels = c("No school", "Less than primary", "Primary school", 
+                               "Middle-secondary school", "Higher secondary school and up"))]
 
+peduc_vars <- c("educ_mom", "educ_dad")
+lasi_copy[, (peduc_vars) := lapply(.SD, function(x) factor(case_when(x == 0 ~ "No school", 
+                                                                    x %in% 1:2 ~ "Less than primary or primary", 
+                                                                    x == 2 ~ "Primary school", 
+                                                                    x > 3 ~ "Middle-secondary school and up"), 
+                                                          levels = c("No school", "Less than primary or primary", "Middle-secondary school and up"))), .SDcols = peduc_vars]
+
+## CHILDHOOD VARIABLES
+lasi_copy[, childhood_finance := factor(case_when(childhood_finance == 1 ~ "Pretty well off", 
+                                                  childhood_finance == 2 ~ "Average", 
+                                                  childhood_finance == 3 ~ "Poor"), 
+                                        levels = c("Average", "Poor", "Pretty well off"))]
+
+lasi_copy[, childhood_health := factor(case_when(childhood_health == 1 ~ "Very good", 
+                                                 childhood_health == 2 ~ "Good", 
+                                                 childhood_health == 3 ~ "Fair", 
+                                                 childhood_health == 4 ~ "Poor", 
+                                                 childhood_health == 5 ~ "Very poor"), 
+                                       levels = c("Fair", "Very poor", "Poor", "Good", "Very good"))]
 
 ## GET STATE NAME
 lasi_copy <- merge(lasi_copy, state_map, by = "state_code")
+lasi_copy[, statef := factor(state_name)]
+
+lasi_copy[, prim_key := as.numeric(prim_key)] ## for merges
 
 # MERGE EVERYTHING TOGETHER -----------------------------------------------------------
 
