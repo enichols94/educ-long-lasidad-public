@@ -186,6 +186,18 @@ long_dt[, age_group := factor(dplyr::case_when(age_group == 1 ~ "60-69",
 ## GENDER
 long_dt[, female := as.numeric(gender == 2)]
 
+## BINARY BY MEDIAN W1 COGNITION
+w1_mediancog <- copy(long_dt[wave == 1])
+median_cog <- w1_mediancog[, median(gcp, na.rm = TRUE)]
+w1_mediancog[, above_w1medcog := as.numeric(gcp > median_cog)]
+long_dt <- merge(long_dt, w1_mediancog[, .(prim_key, above_w1medcog)], by = "prim_key", all.x = TRUE)
+
+## BINARY BY FOLLOW-UP TIME
+w2_followup <- copy(long_dt[wave == 2])
+w2_medfollowup <- w2_followup[, median(time, na.rm = TRUE)]
+w2_followup[, above_w2medfu := as.numeric(time > w2_medfollowup)]
+long_dt <- merge(long_dt, w2_followup[, .(prim_key, above_w2medfu)], by = "prim_key", all.x = TRUE)
+
 ## STANDARDIZE INDIVIDUAL TESTS BASED ON WAVE 1
 tests <- c("wr_delayed", "lm_delayed", "animals", "con_praxis", "ravens")
 for (var in tests){
