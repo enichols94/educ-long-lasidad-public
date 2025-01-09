@@ -312,6 +312,7 @@ weight_dt <- copy(dt[, .(prim_key, death_weight, attrition_weight, combo_weight,
 
 survival_dt <- merge(survival_dt, weight_dt, by = "prim_key")
 longitudinal_dt <- merge(longitudinal_dt, weight_dt, by = "prim_key")
+longitudinal_dt[wave == 1, c("death_weight", "attrition_weight", "combo_weight", "full_weight") := weight_w1]
 
 write_rds(list(survival = survival_dt, longitudinal = longitudinal_dt), 
           paste0(derived_dir, "processed_data_weights.rds"))
