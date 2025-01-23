@@ -37,6 +37,8 @@ state_map <- state_map[!is.na(state_code) & !state_code == 37] ## not missing or
 
 rawlasi_dt <- as.data.table(read_dta(paste0(lasi_raw_dir, "lasi_w1b_ind_bm.dta")))
 
+lasidad_dt <- as.data.table(read_dta(paste0(harmonized_dir, "h_dad_w1a3.dta")))
+
 exit_dt <- as.data.table(read_dta(paste0(exit_dir, "dad_exit_clean.dta"))) 
 
 attrition_dt <- as.data.table(read_dta(paste0(rawdata_dir, "dad_tracker_v1.dta")))
@@ -154,9 +156,9 @@ long_chunks <- lapply(long_vars, make_long)
 all_long <- Reduce(function(x,y) merge(x,y,all=TRUE,by=c("prim_key", "wave")), long_chunks)
 long_dt <- merge(long_dt, all_long, by = "prim_key", all = TRUE)
 
-## REMOVE REFRESHER SAMPLE
+## MARK REFRESHER SAMPLE
 refresher_primkeys <- long_dt[wave == 1 & inwave == 0, unique(prim_key)]
-long_dt <- long_dt[!prim_key %in% refresher_primkeys]
+long_dt[, refresher := as.numeric(prim_key %in% refresher_primkeys)]
 
 ## REMOVE THOSE NOT IN A WAVE
 long_dt <- long_dt[!inwave == 0 & !is.na(inwave)]
@@ -167,7 +169,7 @@ long_dt <- merge(long_dt, time_dt, by = c("prim_key", "wave"), all = TRUE)
 long_dt[wave == 1, time := 0]
 
 ## SAVE VARIABLES NEEDED
-long_dt <- long_dt[, c(simple_vars_newname, varmap_dt[variable %in% long_vars, label], "time", "wave"), with = FALSE]
+long_dt <- long_dt[, c(simple_vars_newname, varmap_dt[variable %in% long_vars, label], "time", "wave", "refresher"), with = FALSE]
 
 ## CASTE CATEGORIZATIONS
 long_dt[, caste := factor(dplyr::case_when(caste == 1 ~ "Scheduled caste", 
@@ -186,6 +188,11 @@ long_dt[, age_group := factor(dplyr::case_when(age_group == 1 ~ "60-69",
 ## GENDER
 long_dt[, female := as.numeric(gender == 2)]
 
+## IW STATUS
+long_dt[, status := factor(dplyr::case_when(status == 1 ~ "Cog + Inf", 
+                                            status == 2 ~ "Cog only", 
+                                            status == 3 ~ "Inf only"))]
+
 ## BINARY BY MEDIAN W1 COGNITION
 w1_mediancog <- copy(long_dt[wave == 1])
 median_cog <- w1_mediancog[, median(gcp, na.rm = TRUE)]
@@ -203,6 +210,14 @@ tests <- c("wr_delayed", "lm_delayed", "animals", "con_praxis", "ravens")
 for (var in tests){
     var_mean <- long_dt[wave == 1, mean(get(var), na.rm = TRUE)]
     var_sd <- long_dt[wave == 1, sd(get(var), na.rm = TRUE)]
+    long_dt[, c(var) := (get(var)-var_mean)/var_sd]
+}
+
+## STANDARDIZE FUNCTION MEASURES TO WAVE 2 (FOR PRACTICE EFFECTS WEIGHTS)
+ftests <- c("jorm", "blessed2", "blessed1")
+for (var in ftests){
+    var_mean <- long_dt[wave == 2, mean(get(var), na.rm = TRUE)]
+    var_sd <- long_dt[wave == 2, sd(get(var), na.rm = TRUE)]
     long_dt[, c(var) := (get(var)-var_mean)/var_sd]
 }
 
@@ -268,13 +283,66 @@ lasi_copy[, childhood_health := factor(case_when(childhood_health == 1 ~ "Very g
 lasi_copy <- merge(lasi_copy, state_map, by = "state_code")
 lasi_copy[, statef := factor(state_name)]
 
+## ADLS
+lasi_copy[, adls := factor(case_when(adls == 0 ~ "None", 
+                                     adls == 1 ~ "1", 
+                                     adls == 2 ~ "2",
+                                     adls %in% 3:4 ~ "3-4", 
+                                     adls %in% 5:6 ~ "5-6"), 
+                           levels = c("None", "1", "2", "3-4", "5-6"))]
+
+## IADLS
+lasi_copy[, iadls := factor(case_when(iadls == 0 ~ "None", 
+                                      iadls == 1 ~ "1", 
+                                      iadls == 2 ~ "2",
+                                      iadls == 3 ~ "3",
+                                      iadls %in% 4:5 ~ "4-5", 
+                                      iadls %in% 6:7 ~ "6-7"), 
+                            levels = c("None", "1", "2", "4-5", "6-7"))]
+
+## STANDARDIZE GRIP STRENGTH 
+lasi_copy[, gripstrength := (gripstrength-mean(gripstrength, na.rm = TRUE))/sd(gripstrength, na.rm = TRUE)]
+
+## ELIGIABLE FOR W1
+w1_ids <- long_dt[wave == 1, unique(prim_key)]
+w1_states <- lasi_copy[prim_key %in% w1_ids, unique(state_code)]
+lasi_copy[, elig_w1 := as.numeric(state_code %in% w1_states & age_lasi >=60)] ## eligible if in W1 states and age is greater than or equal to 60
+
 lasi_copy[, prim_key := as.numeric(prim_key)] ## for merges
+
+# PREP LASI-DAD W1 VARIABLES -----------------------------------------------------------
+
+lasidad_copy <- copy(lasidad_dt)
+
+## SET NAMES AND RESTRICT VARIABLES
+setnames(lasidad_copy, varmap_dt[dataset == "lasidad_w1", variable], varmap_dt[dataset == "lasidad_w1", label])
+lasidad_copy <- lasidad_copy[, c("prim_key", varmap_dt[dataset == "lasidad_w1", label]), with = FALSE]
+
+## FORMAT CDR 
+lasidad_copy[, cdr := factor(case_when(cdr == 0 ~ "Normal", 
+                                       cdr == 0.5 ~ "MCI/Questionnable", 
+                                       cdr >= 1 ~ "Dementia"), 
+                             levels = c("Normal", "MCI/Questionnable", "Dementia"))]
+
+lasidad_copy[, prim_key := as.numeric(prim_key)] ## for merges                 
 
 # MERGE EVERYTHING TOGETHER -----------------------------------------------------------
 
 survival_dt <- merge(survival_dt, lasi_copy, by = "prim_key", all.x = TRUE)
+survival_dt <- merge(survival_dt, lasidad_copy, by = "prim_key", all.x = TRUE)
 
 long_dt <- merge(long_dt, lasi_copy, by = "prim_key", all.x = TRUE)
+long_dt <- merge(long_dt, lasidad_copy, by = "prim_key", all.x = TRUE)
+
+# MAKE PRACTICE EFFECTS DATA ---------------------------------------------------------
+
+pe_dt <- copy(long_dt)
+pe_dt <- pe_dt[wave == 2 & elig_w1 == 1]
+pe_dt <- pe_dt[!status == "Inf only"] ## remove those with only informant data
+
+# REMOVE REFRESHER SAMPLE FOR LONGITUDINAL DATA --------------------------------------
+
+long_dt <- long_dt[refresher == 0]
 
 # CLEAN UP DATA ----------------------------------------------------------------------
 
@@ -285,5 +353,8 @@ for (var in names(survival_dt)){
 for (var in names(long_dt)){
     if (long_dt[, class(get(var))][1] == "haven_labelled") long_dt[, c(var) := as.numeric(get(var))]
 }
+for (var in names(pe_dt)){
+    if (pe_dt[, class(get(var))][1] == "haven_labelled") pe_dt[, c(var) := as.numeric(get(var))]
+}
 
-write_rds(list(survival = survival_dt, longitudinal = long_dt), paste0(derived_dir, "processed_data.rds"))
+write_rds(list(survival = survival_dt, longitudinal = long_dt, practice = pe_dt), paste0(derived_dir, "processed_data.rds"))
