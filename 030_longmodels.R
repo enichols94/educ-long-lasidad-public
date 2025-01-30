@@ -27,8 +27,6 @@ rawdata_dir <- paste0(dir, "data/source/")
 derived_dir <- paste0(dir, "data/derived/")
 plot_dir <- paste0(dir, "plots/")
 
-run <- FALSE ## toggle for whether you need to rerun the long running models
-
 # READ DATA ------------------------------------------------------------------
 
 data <- read_rds(paste0(derived_dir, "processed_data_weights.rds"))
