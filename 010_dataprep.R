@@ -77,8 +77,11 @@ survival_dt <- survival_dt[!(inwave1 == 0 & inwave2 == 1)]
 survival_dt[, date1 := my(paste0(iw_month1, "_", iw_year1))][, date2 := my(paste0(iw_month2, "_", iw_year2))]
 survival_dt[, time_elapsed := as.period(date2-date1)/years(1)]
 
+## ADD ON VARIABLES FOR W1 THAT ARE SIMPLE AND NEEDED FOR SURVIVAL DATA 
+setnames(survival_dt, c("caste1", "age1", "rural1"), c("caste", "age", "rural"))
+
 ## SAVE VARIABLES NEEDED
-survival_dt <- survival_dt[, c(simple_vars_newname, "inwave2", "date1", "date2", "time_elapsed"), with = FALSE]
+survival_dt <- survival_dt[, c(simple_vars_newname, "caste", "age", "rural", "inwave2", "date1", "date2", "time_elapsed"), with = FALSE]
 
 ## CASTE CATEGORIZATIONS
 survival_dt[, caste := factor(dplyr::case_when(caste == 1 ~ "Scheduled caste", 
