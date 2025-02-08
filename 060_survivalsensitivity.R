@@ -73,7 +73,7 @@ w2cog_params <- as.data.table(parameters::model_parameters(w2cog_model))
 death_effects <- as.data.table(effects::effect("gcp*any_school", surv_model, xlevels = list(gcp=seq(-2,2,0.5), any_school = c(0,1))))
 
 death_extra <- survival_dt[, .(gcp = mean(gcp)), by = "any_school"]
-death_extra[, death_prob := predict(surv_model, newdata = death_extra, type = "response")]
+death_extra[, death_prob := predict.glm(surv_model, newdata = death_extra, type = "response")]
 
 death_plot <- ggplot() +
     geom_line(data = death_effects, aes(x = gcp, y = fit, color = as.factor(any_school))) + 
@@ -106,6 +106,11 @@ gcp_effect <- log(0.5)
 anyschool_effect <- log(0.5)
 interaction_effect <- log(0.5)
 
+sample_size = 2000; gcp_effect = survmodel_params[Parameter == "gcp", Coefficient]
+anyschool_effect = survmodel_params[Parameter == "any_school", Coefficient]
+interaction_effect = survmodel_params[Parameter == "gcp:any_school", Coefficient]
+
+
 sim_data <- function(sample_size = 2000, 
                      gcp_effect = survmodel_params[Parameter == "gcp", Coefficient],
                      anyschool_effect = survmodel_params[Parameter == "any_school", Coefficient],
@@ -126,6 +131,13 @@ sim_data <- function(sample_size = 2000,
                                  interaction_effect * w1_gcp * any_school)]
     sim_dt[, died := rbinom(sample_size, size = 1, prob = prop_died)]
 
+    ## results to check sim parameterization 
+    prop_anyschool <- sim_dt[, mean(any_school)]
+    cog_anyschool <- parameters::model_parameters(lm(w1_gcp ~ any_school, data = sim_dt))$Coefficient[2]
+    w2gcp_w1gcp <- parameters::model_parameters(lm(w2_gcp ~ w1_gcp, data = sim_dt))$Coefficient[2]
+    surv_params <- parameters::model_parameters(glm(died ~ w1_gcp * any_school, data = sim_dt, family = binomial(link = "logit")))
+    died_w1gcp <- surv_params$Coefficient[2]; died_anyschool <- surv_params$Coefficient[3]; died_int <- surv_params$Coefficient[4]
+
     ## reformat longitudinal
     lsim_dt <- melt.data.table(sim_dt, id.vars = c("prim_key", "any_school", "died"), measure.vars = c("w1_gcp", "w2_gcp"), 
                                variable.name = "wave", value.name = "gcp")
@@ -141,7 +153,9 @@ sim_data <- function(sample_size = 2000,
     ## format results
     params_select <- grepl("time:any_school",params_base$Parameter)
     result_dt <- data.table(model = c("Base", "Mortality"),
-                            int_value = c(params_base$Coefficient[params_select], params_mort$Coefficient[params_select]))
+                            int_value = c(params_base$Coefficient[params_select], params_mort$Coefficient[params_select]), 
+                            prop_anyschool = prop_anyschool, cog_anyschool = cog_anyschool, w2gcp_w1gcp = w2gcp_w1gcp, 
+                            died_w1gcp = died_w1gcp, died_anyschool = died_anyschool, died_int = died_int)
     return(result_dt)
 }
 
@@ -157,6 +171,11 @@ sim_results_extreme <- rbindlist(pbreplicate(iterations,
 
 # PRINT SIMULATION RESULTS -----------------------------------------------------------
 
+## check simulation parameterization
+sim_results[model == "Base", lapply(.SD, mean), .SDcols = c("prop_anyschool", "cog_anyschool", "w2gcp_w1gcp", "died_w1gcp", "died_anyschool", "died_int")]
+anyschool_mean; w1cog_params; w2cog_params; survmodel_params
+
+## show and save results
 sim_results[, .(mean = mean(int_value), lower = quantile(int_value, 0.025), upper = quantile(int_value, 0.975)), by = "model"]
 sim_results_extreme[, .(mean = mean(int_value), lower = quantile(int_value, 0.025), upper = quantile(int_value, 0.975)), by = "model"]
 
