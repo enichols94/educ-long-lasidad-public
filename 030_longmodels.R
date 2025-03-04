@@ -92,7 +92,7 @@ m14 <- get_model(dt[above_w2medfu == 0]); m15 <- get_model(dt[above_w2medfu == 1
 m16 <- get_model(dt[cdr == "Normal"]); m17 <- get_model(dt[cdr == "MCI/Questionnable"]); m18 <- get_model(dt[cdr == "Dementia"])
 
 ## quantile regression
-m19 <- rq(as.formula(m1_form), data = dt, tau = c(0.1,0.25,0.5,0.75, 0.9))
+m19 <- quantreg::rq(as.formula(m1_form), data = dt, tau = c(0.1,0.25,0.5,0.75, 0.9))
 m19_params <- summary(m19, se = "boot", cluster = dt[, prim_key]) ## https://ideas.repec.org/a/taf/jnlasa/v112y2017i517p446-456.html
 
 ## individual test items
@@ -170,6 +170,9 @@ label_dt <- data.table(model_num = model_results[, unique(model_num)],
                        category = c(rep("Base models",5), rep("Stratified", 14), rep("Quantiles", 5), rep("Other cognitive outcomes", 9)))
 label_dt[, labels := factor(labels, levels = rev(label_dt[, labels]))]                       
 model_results <- merge(model_results, label_dt, by = "model_num", sort = FALSE)
+
+## results section 
+model_results[labels == "Mixed effects model (base)"]
 
 # MAKE GRAPH -----------------------------------------------------------
 
