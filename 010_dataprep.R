@@ -1,8 +1,8 @@
 ##########################################################################
 ### Author: Emma Nichols
 ### Date: 06/03/2024
-### Project: LASIDAD Biomarker joint models
-### Purpose: Data Prep - survival data
+### Project: LASIDAD Education - cog decline
+### Purpose: Data Prep 
 ##########################################################################
 
 rm(list = ls())
@@ -43,8 +43,7 @@ exit_dt <- as.data.table(read_dta(paste0(exit_dir, "dad_exit_clean.dta")))
 
 attrition_dt <- as.data.table(read_dta(paste0(rawdata_dir, "dad_tracker_v1.dta")))
 
-longitudinal_dt <- as.data.table(read_dta(paste0(rawdata_dir, "H_DAD_withimp_w12_core.dta"))) 
-longitudinal_noimp_dt <- as.data.table(read_dta(paste0(rawdata_dir, "H_DAD_w12_noimp_core.dta")))
+longitudinal_dt <- as.data.table(read_dta(paste0(rawdata_dir, "H_LASI_DAD_b1.dta")))
 
 varmap_dt <- as.data.table(read.xlsx(paste0(dir, "variable_map.xlsx")))
 
@@ -54,11 +53,6 @@ survival_dt <- copy(longitudinal_dt)
 simple_vars <- varmap_dt[dataset == "longitudinal" & !grepl("\\*", variable), variable]
 simple_vars_newname <- varmap_dt[dataset == "longitudinal" & variable %in% simple_vars, label]
 long_vars <- varmap_dt[dataset == "longitudinal" & !variable %in% simple_vars, variable]
-
-## SUBSTITUTE UNIMPUTED DATA FOR ONE RECORD THAT WAS ADDED AT THE END
-primkey_change <- "133223300030101"
-noimp_add <- copy(longitudinal_noimp_dt[prim_key == primkey_change])
-survival_dt <- rbind(survival_dt[!prim_key == primkey_change], noimp_add[prim_key == primkey_change], use.names = TRUE, fill = TRUE)
 
 ## RENAME SIMPLE VARS
 setnames(survival_dt, simple_vars, simple_vars_newname)
@@ -340,7 +334,9 @@ long_dt <- merge(long_dt, lasidad_copy, by = "prim_key", all.x = TRUE)
 # MAKE PRACTICE EFFECTS DATA ---------------------------------------------------------
 
 pe_dt <- copy(long_dt)
+nrow(pe_dt[wave == 2 & elig_w1 == 0])
 pe_dt <- pe_dt[wave == 2 & elig_w1 == 1]
+nrow(pe_dt[status == "Inf only"])
 pe_dt <- pe_dt[!status == "Inf only"] ## remove those with only informant data
 
 # REMOVE REFRESHER SAMPLE FOR LONGITUDINAL DATA --------------------------------------
