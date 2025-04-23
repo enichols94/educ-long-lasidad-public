@@ -25,7 +25,8 @@ longitudinal_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Preliminary LASI-DAD-Co
 exit_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Combined/Data/Clean/")
 rawdata_dir <- paste0(dir, "data/source/")
 derived_dir <- paste0(dir, "data/derived/")
-plot_dir <- paste0(dir, "plots/")
+plot_dir <- paste0(dir, "paper/model_sensitivities_fig/")
+appendix_dir <- paste0(dir, "paper/appendix_figs/")
 
 # READ DATA ------------------------------------------------------------------
 
@@ -37,7 +38,8 @@ model_covs <- c("age", "gender", "caste", "rural", "educ_dad", "childhood_financ
 
 # FORMAT DATA -----------------------------------------------------------
 
-## note: maybe should redo weights with this exclusion or create a weight to deal with this
+## number lost to mortality and loss to follow-up  
+survival_dt[, sum(died)]; survival_dt[, sum(as.numeric(refused == 1 | attrited == 1))]
 
 ## remove missing data
 dt <- copy(longitudinal_dt); surv_dt <- copy(survival_dt)
@@ -45,6 +47,7 @@ for (var in c("gcp", "educ", model_covs)){
     message(paste0("Missing individuals in ", var, ": ", dt[is.na(get(var)), length(unique(prim_key))], " (", 
                    dt[is.na(get(var)) & wave == 2, length(unique(prim_key))], " longitudinal)"))
     dt <- dt[!is.na(get(var))]
+    message(paste0("Now excluding N=", nrow(surv_dt[!prim_key %in% dt[, unique(prim_key)]]), " from data completely"))
 }
 surv_dt <- surv_dt[prim_key %in% dt[, unique(prim_key)]] ## only keep those in longitudinal data
 
@@ -62,9 +65,9 @@ m0 <- lmer(as.formula(m0_form), data = dt)
 
 ## weighted gee models
 m1_form <- paste0("gcp ~ educ + educ*time + ", paste0(model_covs, collapse = "*time + "), "*time")
-m1 <- geepack::geeglm(as.formula(m1_form), data = dt, id = dt[, prim_key], family = gaussian, weights = dt[, weight_w1*death_weight])
-m2 <- geepack::geeglm(as.formula(m1_form), data = dt, id = dt[, prim_key], family = gaussian, weights = dt[, weight_w1*attrition_weight])
-m3 <- geepack::geeglm(as.formula(m1_form), data = dt, id = dt[, prim_key], family = gaussian, weights = dt[, full_weight])
+m1 <- geepack::geeglm(as.formula(m1_form), data = dt, id = dt[, prim_key], family = gaussian, corstr = "exchangeable", weights = dt[, death_weight]) ## only include death weight
+m2 <- geepack::geeglm(as.formula(m1_form), data = dt, id = dt[, prim_key], family = gaussian, corstr = "exchangeable", weights = dt[, weight_w1*attrition_weight])
+m3 <- geepack::geeglm(as.formula(m1_form), data = dt, id = dt[, prim_key], family = gaussian, corstr = "exchangeable", weights = dt[, full_weight])
 
 ## joint model
 message("Joint model further excludes ", length(surv_dt[attrited == 1]), " individuals")
@@ -158,7 +161,7 @@ model_results[, educ_cat := gsub("educ", "", parameter)][, educ_cat := gsub(":ti
 
 ## merge on labels and categories
 label_dt <- data.table(model_num = model_results[, unique(model_num)], 
-                       labels = c("Mixed effects model (base)", "Weighted GEE model (survey + death)", "Weighted GEE model (survey + attrition)", 
+                       labels = c("Mixed effects model (base)", "Weighted GEE model (death)", "Weighted GEE model (survey + attrition)", 
                                   "Weighted GEE model (survey + death + attrition)", "Joint model", "Age (60-69)", "Age (70-79)", 
                                   "Age (80+)", "Urbanicity (rural)", "Urbanicity (urban)", "Gender (men)", "Gender (women)",
                                   "W1 cognition (below median W1 cog)", "W1 cognition (above median W1 cog)", 
@@ -167,17 +170,20 @@ label_dt <- data.table(model_num = model_results[, unique(model_num)],
                                   "10th percentile", "25th percentile", "50th percentile", "75th percentile", "90th percentile",
                                   "Memory", "Executive functioning", "Language", "Visuospatial functioning", 
                                   "Delayed word recall", "Delayed story recall (logical memory)", "Animal naming", "Constructional praxis", "Raven's progressive matrices"), 
-                       category = c(rep("Base models",5), rep("Stratified", 14), rep("Quantiles", 5), rep("Other cognitive outcomes", 9)))
+                       category = c(rep("Base",5), rep("Stratified", 14), rep("Quantiles", 5), rep("Other cognitive outcomes", 9)))
 label_dt[, labels := factor(labels, levels = rev(label_dt[, labels]))]                       
 model_results <- merge(model_results, label_dt, by = "model_num", sort = FALSE)
 
 ## results section 
 model_results[labels == "Mixed effects model (base)"]
 
-# MAKE GRAPH -----------------------------------------------------------
+# MAKE GRAPHS -----------------------------------------------------------
+
+## initial sensitivities
+graph1_models <- c(0,5:11,paste0("19 - ", c(0.1,0.25,0.5,0.75,0.9)), 20:28) ## models to include in the first graph 
 
 get_graphs <- function(c){
-    plot <- ggplot(model_results[category == c], aes(x = labels, y = estimate, ymin = lower, ymax = upper, color = educ_cat)) +
+    plot <- ggplot(model_results[category == c & model_num %in% graph1_models], aes(x = labels, y = estimate, ymin = lower, ymax = upper, color = educ_cat)) +
         geom_point() +
         geom_errorbar(width = 0.1) + 
         geom_hline(yintercept = 0, linetype = "dashed") +
@@ -191,7 +197,7 @@ get_graphs <- function(c){
     if (c == "Other cognitive outcomes"){
         plot <- plot + labs(y = "Difference in rate of annual cognitive decline (Ref: No schooling)") + theme(legend.position = "bottom")
     }
-    if (!c == "Base models"){
+    if (!c == "Base"){
         plot <- plot + theme(strip.text = element_blank())
     }
     if (!c == "Other cognitive outcomes"){
@@ -213,6 +219,36 @@ labels <- lapply(model_results[, unique(category)], get_labels)
 
 ## combine plots
 full_plot <- plots[[1]] + labels[[1]] + plots[[2]] + labels[[2]] + plots[[3]] + labels[[3]] + plots[[4]] + labels[[4]] +
-    plot_layout(nrow = 4, widths = c(1, 0.1), heights = c(1,2.3,0.9,1.5))
+    plot_layout(nrow = 4, widths = c(1, 0.1), heights = c(0.2,1.15,0.9,1.5))
 
 ggsave(paste0(plot_dir, "regression_comparison_", date, ".pdf"), plot= full_plot, height = 8, width = 15)
+
+## mortality models for appendix
+mortplot <- ggplot(model_results[category == "Base" & model_num %in% c(0,1,4)], aes(x = labels, y = estimate, ymin = lower, ymax = upper, color = educ_cat)) +
+        geom_point() +
+        geom_errorbar(width = 0.1) + 
+        geom_hline(yintercept = 0, linetype = "dashed") +
+        facet_wrap(~educ_cat, nrow = 1) + 
+        coord_flip() + 
+        labs(x = "", y = "Difference in rate of annual cognitive decline (Ref: No schooling)") +
+        scale_y_continuous(limits = c(-0.102,0), breaks = seq(-.1,0,0.025), oob = oob_keep) +
+        scale_color_manual(name = "", values = c("#6551CC", "#CC5151", "#2C85B2", "#85B22C")) + 
+        theme_bw() +
+        theme(legend.position = "bottom", plot.margin = unit(c(0,5.5,0,5.5), "pt"))
+
+ggsave(paste0(appendix_dir, "mortality_regression_comparison_", date, ".pdf"), plot= mortplot, height = 3, width = 14)
+
+## regression to the mean models for appendix 
+regmean <- ggplot(model_results[model_num %in% as.character(c(12:13,16:18))], aes(x = labels, y = estimate, ymin = lower, ymax = upper, color = educ_cat)) +
+        geom_point() +
+        geom_errorbar(width = 0.1) + 
+        geom_hline(yintercept = 0, linetype = "dashed") +
+        facet_wrap(~educ_cat, nrow = 1) + 
+        coord_flip() + 
+        labs(x = "", y = "Difference in rate of annual cognitive decline (Ref: No schooling)") +
+        scale_y_continuous(limits = c(-0.102,0), breaks = seq(-.1,0,0.025), oob = oob_keep) +
+        scale_color_manual(name = "", values = c("#6551CC", "#CC5151", "#2C85B2", "#85B22C")) + 
+        theme_bw() +
+        theme(legend.position = "bottom", plot.margin = unit(c(0,5.5,0,5.5), "pt"))
+
+ggsave(paste0(appendix_dir, "regmean_regression_comparison_", date, ".pdf"), plot= regmean, height = 3, width = 14)
