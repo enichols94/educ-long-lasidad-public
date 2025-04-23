@@ -23,13 +23,29 @@ longitudinal_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Preliminary LASI-DAD-Co
 exit_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Combined/Data/Clean/")
 rawdata_dir <- paste0(dir, "data/source/")
 derived_dir <- paste0(dir, "data/derived/")
-plot_dir <- paste0(dir, "plots/")
+plot_dir <- paste0(dir, "paper/trajectories_fig/")
 
 # READ DATA ------------------------------------------------------------------
 
 data <- read_rds(paste0(derived_dir, "processed_data_weights.rds"))
 survival_dt <- data$survival
 longitudinal_dt <- data$longitudinal
+
+# RESTRICTIONS ---------------------------------------------------------------
+
+## number lost to mortality and loss to follow-up  
+survival_dt[, sum(died)]; survival_dt[, sum(as.numeric(refused == 1 | attrited == 1))]
+
+## remove missing data
+model_covs <- c("age", "gender", "caste", "rural", "educ_dad", "childhood_finance", "childhood_health")
+dt <- copy(longitudinal_dt); surv_dt <- copy(survival_dt)
+for (var in c("gcp", "educ", model_covs)){
+    message(paste0("Missing individuals in ", var, ": ", dt[is.na(get(var)), length(unique(prim_key))], " (", 
+                   dt[is.na(get(var)) & wave == 2, length(unique(prim_key))], " longitudinal)"))
+    dt <- dt[!is.na(get(var))]
+    message(paste0("Now excluding N=", nrow(surv_dt[!prim_key %in% dt[, unique(prim_key)]]), " from data completely"))
+}
+surv_dt <- surv_dt[prim_key %in% dt[, unique(prim_key)]] ## only keep those in longitudinal data
 
 # PLOTTING --------------------------------------------------------------------
 
