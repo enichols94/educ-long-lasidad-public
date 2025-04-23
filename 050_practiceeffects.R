@@ -23,7 +23,7 @@ longitudinal_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Preliminary LASI-DAD-Co
 exit_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Combined/Data/Clean/")
 rawdata_dir <- paste0(dir, "data/source/")
 derived_dir <- paste0(dir, "data/derived/")
-plot_dir <- paste0(dir, "plots/")
+plot_dir <- paste0(dir, "paper/practiceeffects_fig/")
 
 # READ DATA ------------------------------------------------------------------
 
@@ -209,6 +209,10 @@ plot_strat_dt <- copy(results_strat_dt)
 plot_strat_dt <- merge(plot_strat_dt, varlabel_dt, by = "var")
 plot_strat_dt[, educ := factor(educ, levels = rev(c("No school", "Any school")))]
 
+## results section 
+plot_dt[var == "gcp" & missingness_test == 0]
+plot_dt[var %in% c("memory", "visuospatial", "lm_delayed") & missingness_test == 0]
+
 ## main results
 main_graph <- ggplot(plot_dt[missingness_test == 0], aes(x = label, y = estimate, ymin = lower, ymax = upper)) + 
     geom_point(color = "#2972b6") + 
@@ -239,10 +243,13 @@ educ_graph <- ggplot(plot_strat_dt, aes(x = label, y = estimate, ymin = lower, y
     coord_flip() + 
     guides(color = guide_legend(reverse = TRUE)) +
     labs(x = "", y = "Practice effect\n(Difference in standardized score between those\nwith practice vs. without)") + 
-    theme_bw() 
+    theme_bw() + 
+    theme(legend.position = "bottom")
 
 ## full graph 
-full_graph <- main_graph + missingness_graph + educ_graph + 
-    plot_layout(nrow = 1)
+full_graph <- (main_graph + missingness_graph) / 
+              (plot_spacer() + educ_graph + plot_spacer() + plot_layout(widths = c(0.3, 2, 1.5))) +
+              plot_layout(nrow = 2) +
+              plot_annotation(tag_levels = "A", tag_suffix = ".")
 
-ggsave(paste0(plot_dir, "practice_effects_", date, ".pdf"), plot = full_graph, width = 18, height = 6)
+ggsave(paste0(plot_dir, "practice_effects_", date, ".pdf"), plot = full_graph, width = 12, height = 8)
