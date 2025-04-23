@@ -9,7 +9,7 @@ rm(list = ls())
 
 pacman::p_load(data.table, openxlsx, haven, readr, dplyr, magrittr, stringr,
                labelled, scales, gridExtra, grid, ggplot2, lubridate, JM, 
-               survival, patchwork, survey, srvyr, doBy, lme4, pbapply)
+               survival, patchwork, survey, srvyr, doBy, lme4, pbapply, future.apply)
 date <- gsub("-", "_", Sys.Date())
 set.seed(6541)
 
@@ -23,7 +23,7 @@ longitudinal_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Preliminary LASI-DAD-Co
 exit_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Combined/Data/Clean/")
 rawdata_dir <- paste0(dir, "data/source/")
 derived_dir <- paste0(dir, "data/derived/")
-plot_dir <- paste0(dir, "plots/")
+plot_dir <- paste0(dir, "paper/mortality_fig/")
 
 iterations <- 1000
 
@@ -32,6 +32,22 @@ iterations <- 1000
 data <- read_rds(paste0(derived_dir, "processed_data_weights.rds"))
 survival_dt <- data$survival
 longitudinal_dt <- data$longitudinal
+
+# RESTRICTIONS ---------------------------------------------------------------
+
+## number lost to mortality and loss to follow-up  
+survival_dt[, sum(died)]; survival_dt[, sum(as.numeric(refused == 1 | attrited == 1))]
+
+## remove missing data
+dt <- copy(longitudinal_dt); surv_dt <- copy(survival_dt)
+model_covs <- c("age", "gender", "caste", "rural", "educ_dad", "childhood_finance", "childhood_health")
+for (var in c("gcp", "educ", model_covs)){
+    message(paste0("Missing individuals in ", var, ": ", dt[is.na(get(var)), length(unique(prim_key))], " (", 
+                   dt[is.na(get(var)) & wave == 2, length(unique(prim_key))], " longitudinal)"))
+    dt <- dt[!is.na(get(var))]
+    message(paste0("Now excluding N=", nrow(surv_dt[!prim_key %in% dt[, unique(prim_key)]]), " from data completely"))
+}
+surv_dt <- surv_dt[prim_key %in% dt[, unique(prim_key)]] ## only keep those in longitudinal data
 
 # ADJUST DATA ----------------------------------------------------------------
 
@@ -74,6 +90,7 @@ death_effects <- as.data.table(effects::effect("gcp*any_school", surv_model, xle
 
 death_extra <- survival_dt[, .(gcp = mean(gcp)), by = "any_school"]
 death_extra[, death_prob := predict.glm(surv_model, newdata = death_extra, type = "response")]
+death_extra
 
 death_plot <- ggplot() +
     geom_line(data = death_effects, aes(x = gcp, y = fit, color = as.factor(any_school))) + 
@@ -99,19 +116,71 @@ deathplot_full <- death_plot + deathplot_bottom +
 
 ggsave(paste0(plot_dir, "death_plot_", date, ".pdf"), plot = deathplot_full, width = 8, height = 6)
 
+# CALIBRATE INTERCEPTS ----------------------------------------------------------
+
+# intercept = survmodel_params[Parameter == "(Intercept)", Coefficient]
+# gcp_effect = survmodel_params[Parameter == "gcp", Coefficient]
+# anyschool_effect = survmodel_params[Parameter == "any_school", Coefficient]
+# interaction_effect = survmodel_params[Parameter == "gcp:any_school", Coefficient]
+# sample_size = 2000
+
+## function to optimize over 
+interceptopt <- function(intercept, gcp_effect, anyschool_effect, interaction_effect){
+    
+    data <- copy(survival_dt)
+
+    set.seed(12345)
+
+    data[, prop_died := plogis(intercept + 
+                               gcp_effect * gcp + 
+                               anyschool_effect * any_school + 
+                               interaction_effect * gcp * any_school)]
+    data[, sim_died := rbinom(nrow(data), size = 1, prob = prop_died)]
+  
+    optSreturn<-abs(data[, sum(sim_died)] - data[, sum(died)])
+    
+    return(optSreturn)
+}
+
+# g = gcp_effect; s = anyschool_effect; i = interaction_effect; nrep = 500; Lwin = -3; Uwin = 0
+
+## do optimization
+optimize_intercept <-function(nrep=500, Lwin=-3, Uwin=-1.5, g, s, i){
+    
+  set.seed(12345)
+  
+  plan(multisession, workers=10) ## Run in parallel on local computer. Can specify 10 cores for desktop.
+  
+  beta_S0_reps<-future_replicate(nrep,optimize(interceptopt, lower = Lwin, upper = Uwin,
+                                               maximum = FALSE,
+                                               gcp_effect = g, anyschool_effect = s, interaction_effect = i)$minimum)
+
+  plan(sequential)
+  
+  return(mean(beta_S0_reps))
+} 
+
+intercept_main <- optimize_intercept(nrep=500, Lwin = -2, Uwin = -1, g = survmodel_params[Parameter == "gcp", Coefficient], 
+                                     s = survmodel_params[Parameter == "any_school", Coefficient], 
+                                     i = survmodel_params[Parameter == "gcp:any_school", Coefficient])
+
+intercept_extreme <- optimize_intercept(nrep=500, Lwin = -2, Uwin = 0, g = log(0.5), 
+                                         s = log(0.5), i = log(0.5))
+
+
 # CREATE SIM FUNCTION -----------------------------------------------------------
 
-sample_size <- 2000
-gcp_effect <- log(0.5)
-anyschool_effect <- log(0.5)
-interaction_effect <- log(0.5)
+# sample_size <- 2000
+# gcp_effect <- log(0.5)
+# anyschool_effect <- log(0.5)
+# interaction_effect <- log(0.5)
+# intercept <- intercept_extreme
 
-sample_size = 2000; gcp_effect = survmodel_params[Parameter == "gcp", Coefficient]
-anyschool_effect = survmodel_params[Parameter == "any_school", Coefficient]
-interaction_effect = survmodel_params[Parameter == "gcp:any_school", Coefficient]
+# sample_size = 2000; gcp_effect = survmodel_params[Parameter == "gcp", Coefficient]
+# anyschool_effect = survmodel_params[Parameter == "any_school", Coefficient]
+# interaction_effect = survmodel_params[Parameter == "gcp:any_school", Coefficient]
 
-
-sim_data <- function(sample_size = 2000, 
+sim_data <- function(sample_size = 2000, intercept = intercept_main, 
                      gcp_effect = survmodel_params[Parameter == "gcp", Coefficient],
                      anyschool_effect = survmodel_params[Parameter == "any_school", Coefficient],
                      interaction_effect = survmodel_params[Parameter == "gcp:any_school", Coefficient]){
@@ -125,7 +194,7 @@ sim_data <- function(sample_size = 2000,
     sim_dt[, w2_gcp := w2cog_params[Parameter == "(Intercept)", Coefficient] + 
               w2cog_params[Parameter == "w1_cog", Coefficient] * w1_gcp + 
               rnorm(sample_size, 0, sigma(w2cog_model))]
-    sim_dt[, prop_died := plogis(survmodel_params[Parameter == "(Intercept)", Coefficient] + 
+    sim_dt[, prop_died := plogis(intercept + 
                                  gcp_effect * w1_gcp + 
                                  anyschool_effect * any_school + 
                                  interaction_effect * w1_gcp * any_school)]
@@ -137,6 +206,7 @@ sim_data <- function(sample_size = 2000,
     w2gcp_w1gcp <- parameters::model_parameters(lm(w2_gcp ~ w1_gcp, data = sim_dt))$Coefficient[2]
     surv_params <- parameters::model_parameters(glm(died ~ w1_gcp * any_school, data = sim_dt, family = binomial(link = "logit")))
     died_w1gcp <- surv_params$Coefficient[2]; died_anyschool <- surv_params$Coefficient[3]; died_int <- surv_params$Coefficient[4]
+    num_died <- sim_dt[died == 1, .N]
 
     ## reformat longitudinal
     lsim_dt <- melt.data.table(sim_dt, id.vars = c("prim_key", "any_school", "died"), measure.vars = c("w1_gcp", "w2_gcp"), 
@@ -155,7 +225,7 @@ sim_data <- function(sample_size = 2000,
     result_dt <- data.table(model = c("Base", "Mortality"),
                             int_value = c(params_base$Coefficient[params_select], params_mort$Coefficient[params_select]), 
                             prop_anyschool = prop_anyschool, cog_anyschool = cog_anyschool, w2gcp_w1gcp = w2gcp_w1gcp, 
-                            died_w1gcp = died_w1gcp, died_anyschool = died_anyschool, died_int = died_int)
+                            died_w1gcp = died_w1gcp, died_anyschool = died_anyschool, died_int = died_int, prop_died = num_died/sample_size)
     return(result_dt)
 }
 
@@ -164,15 +234,19 @@ sim_results <- rbindlist(pbreplicate(iterations, sim_data(), simplify = FALSE))
 
 ## extreme effects 
 sim_results_extreme <- rbindlist(pbreplicate(iterations, 
-                                sim_data(gcp_effect = log(0.5),
+                                sim_data(intercept = intercept_extreme, 
+                                         gcp_effect = log(0.5),
                                          anyschool_effect = log(0.5),
                                          interaction_effect = log(0.5)),
                                 simplify = FALSE))
 
+
+
 # PRINT SIMULATION RESULTS -----------------------------------------------------------
 
 ## check simulation parameterization
-sim_results[model == "Base", lapply(.SD, mean), .SDcols = c("prop_anyschool", "cog_anyschool", "w2gcp_w1gcp", "died_w1gcp", "died_anyschool", "died_int")]
+sim_results[model == "Base", lapply(.SD, mean), .SDcols = c("prop_anyschool", "cog_anyschool", "w2gcp_w1gcp", "died_w1gcp", "died_anyschool", "died_int", "prop_died")]
+sim_results_extreme[model == "Base", lapply(.SD, mean), .SDcols = c("prop_anyschool", "cog_anyschool", "w2gcp_w1gcp", "died_w1gcp", "died_anyschool", "died_int", "prop_died")]
 anyschool_mean; w1cog_params; w2cog_params; survmodel_params
 
 ## show and save results
