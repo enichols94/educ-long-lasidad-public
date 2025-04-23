@@ -24,6 +24,7 @@ exit_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Combined/Data/Clean/")
 rawdata_dir <- paste0(dir, "data/source/")
 derived_dir <- paste0(dir, "data/derived/")
 plot_dir <- paste0(dir, "plots/")
+appendix_dir <- paste0(dir, "paper/appendix_figs/") # for any appendix figures
 
 # READ DATA ------------------------------------------------------------------
 
@@ -305,6 +306,8 @@ combo_balance <- balance_graph(full_diffs, name = "Death + Attrition")
 pdf(paste0(plot_dir, "balance_plots_", date, ".pdf"), height = 8, width = 8)
 death_balance; attrition_balance; combo_balance
 dev.off()
+
+ggsave(paste0(appendix_dir, "mortality_balance_plot_", date, ".pdf"), plot = death_balance, width = 8, height = 8)
 
 # ADD WEIGHT TO DATA -----------------------------------------------------------
 
