@@ -23,7 +23,7 @@ longitudinal_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Preliminary LASI-DAD-Co
 exit_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Combined/Data/Clean/")
 rawdata_dir <- paste0(dir, "data/source/")
 derived_dir <- paste0(dir, "data/derived/")
-plot_dir <- paste0(dir, "plots/")
+plot_dir <- paste0(dir, "paper/appendix_figs/")
 
 # READ DATA ------------------------------------------------------------------
 
@@ -40,15 +40,7 @@ pe_dt[, practice := as.numeric(!refresher == 1)]
 covs <- c("age10", "female", "statef", "caste", "rural", "educ", "educ_mom", "educ_dad", "wealthq", "consumptionq", "puccahouse", 
           "improvedsanitation", "childhood_finance", "childhood_health",
           "cidisymptoms", "eversmoke", "nowsmoke", "proxy", "adls", "iadls", "gripstrength", "gcp_lasi", 
-          "jorm", "blessed2", "blessed1")
-
-# TRY SUPER LEARNER -------------------------------------------------------
-
-# ## uses missing indicator by default for missing values
-
-# model <- WeightIt::weightit(as.formula(paste0("practice ~", paste(covs, collapse = " + "))), 
-#                             data = pe_dt, method = "super", estimate = "ATE", 
-#                             SL.library = c("SL.glm", "SL.stepAIC", "SL.glm.interaction"))     
+          "jorm", "blessed2", "blessed1")  
 
 # CREATE MISSING INDICATORS -----------------------------------------------
 
@@ -139,7 +131,7 @@ for (cov in test_covs[!test_covs == "rural"]){
 
 model1 <- glm(as.formula(paste0("practice ~", paste(reg_covs1, collapse = " + "))),
                     data = pe_dt, family = binomial(link = "logit"))
-auc1 <- auc(roc(response = pe_dt[, practice], predictor = predict(model, type = "response")))
+auc1 <- auc(roc(response = pe_dt[, practice], predictor = predict(model1, type = "response")))
 
 # CALCULATE WEIGHTS -----------------------------------------------------------
 
@@ -235,7 +227,7 @@ pe_balance <- balance_graph(pe_diffs, name = "Practice effects")
 
 density_gg <- ggplot(pe_dt, aes(x = ps, fill = as.factor(practice))) +
     geom_density(alpha = 0.5) +
-    scale_fill_manual(name = "", values = c("#04BF8A", "#026873")) +
+    scale_fill_manual(name = "", values = c("#04BF8A", "#026873"), labels = c("0" = "Refresher", "1" = "Returner")) +
     labs(x = "Propensity score", y = "Density") +
     theme_bw() +
     theme(legend.position = "bottom")
@@ -253,6 +245,9 @@ upper_cut <- pe_dt[practice == 1, quantile(ps, probs = 0.95, na.rm = T)]
 
 ## restrict and created trimmed dataset
 pe_restricted_dt <- copy(pe_dt[ps > lower_cut & ps < upper_cut])
+
+## number trimmed and sample size 
+nrow(pe_restricted_dt); nrow(pe_dt)-nrow(pe_restricted_dt)
 
 # CALCULATE NEW WEIGHTS ---------------------------------------------------------
 
@@ -315,7 +310,7 @@ for (cov in test_covs[!test_covs == "rural"]){
 
 model3 <- glm(as.formula(paste0("practice ~", paste(reg_covs2, collapse = " + "))),
                     data = pe_restricted_dt, family = binomial(link = "logit"))
-auc3 <- auc(roc(response = pe_restricted_dt[, practice], predictor = predict(model, type = "response")))
+auc3 <- auc(roc(response = pe_restricted_dt[, practice], predictor = predict(model3, type = "response")))
 
 # EVALUATE/CHECK -------------------------------------------------------------
 
@@ -332,13 +327,17 @@ pe_restricted_balance <- balance_graph(pe_restricted_diffs, name = "Practice eff
 ## density graph after restriction
 density_restricted_gg <- ggplot(pe_restricted_dt, aes(x = ps, fill = as.factor(practice))) +
     geom_density(alpha = 0.5) +
-    scale_fill_manual(name = "", values = c("#04BF8A", "#026873")) +
+    scale_fill_manual(name = "", values = c("#04BF8A", "#026873"), labels = c("0" = "Refresher", "1" = "Returner")) +
     labs(x = "Propensity score", y = "Density") +
     theme_bw() +
     theme(legend.position = "bottom")
 
 pdf(paste0(plot_dir, "practiceeffects_balance_plots_", date, ".pdf"), height = 8, width = 14)
-pe_balance; density_gg; pe_restricted_balance; density_restricted_gg
+pe_balance; pe_restricted_balance
+dev.off()
+
+pdf(paste0(plot_dir, "practiceeffects_density_plots_", date, ".pdf"), height = 4, width = 4)
+density_gg; density_restricted_gg
 dev.off()
 
 # SAVE DATA -----------------------------------------------------------
