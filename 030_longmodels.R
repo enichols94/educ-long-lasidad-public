@@ -252,3 +252,27 @@ regmean <- ggplot(model_results[model_num %in% as.character(c(12:13,16:18))], ae
         theme(legend.position = "bottom", plot.margin = unit(c(0,5.5,0,5.5), "pt"))
 
 ggsave(paste0(appendix_dir, "regmean_regression_comparison_", date, ".pdf"), plot= regmean, height = 3, width = 14)
+
+
+# EXPLORE CHANGE MODELS -----------------------------------------------------------
+
+change_dt <- copy(dt) 
+
+## data manipulations
+change_dt[, N := .N, by = "prim_key"]
+change_dt[wave == 1, w1_age := age]
+change_dt[, w1_age := mean(w1_age, na.rm = TRUE)]
+
+## change covs to be w1 age 
+change_covs <- model_covs
+change_covs <- gsub("age", "w1_age", change_covs)
+
+## create wide data 
+change_dt <- dcast(as.formula(paste0("prim_key + educ + ", paste0(change_covs, collapse = " + "), " ~ wave")), value.var = "gcp",  data = dt[N==2])
+
+## create change variable 
+change_dt[, change := `2` - `1`]
+
+## run models 
+change_model <- lm(paste0("change ~  educ + ", paste0(change_covs, collapse = " + ")), data = change_dt)
+change_model_adj <- lm(paste0("change ~ `1` + educ + ", paste0(change_covs, collapse = " + ")), data = change_dt)
