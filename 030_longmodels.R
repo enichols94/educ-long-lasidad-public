@@ -191,7 +191,7 @@ get_graphs <- function(c){
         coord_flip() + 
         labs(x = "", y = "") +
         scale_y_continuous(limits = c(-0.102,0), breaks = seq(-.1,0,0.025), oob = oob_keep) +
-        scale_color_manual(name = "", values = c("#6551CC", "#CC5151", "#2C85B2", "#85B22C")) + 
+        scale_color_manual(name = "", values = c("#5CB85C", "#357EBD", "#D43F3A", "#9632B8")) + 
         theme_bw() +
         theme(legend.position = "none", plot.margin = unit(c(0,5.5,0,5.5), "pt"))
     if (c == "Other cognitive outcomes"){
@@ -232,7 +232,7 @@ mortplot <- ggplot(model_results[category == "Base" & model_num %in% c(0,1,4)], 
         coord_flip() + 
         labs(x = "", y = "Difference in rate of annual cognitive decline (Ref: No schooling)") +
         scale_y_continuous(limits = c(-0.102,0), breaks = seq(-.1,0,0.025), oob = oob_keep) +
-        scale_color_manual(name = "", values = c("#6551CC", "#CC5151", "#2C85B2", "#85B22C")) + 
+        scale_color_manual(name = "", values = c("#5CB85C", "#357EBD", "#D43F3A", "#9632B8")) + 
         theme_bw() +
         theme(legend.position = "bottom", plot.margin = unit(c(0,5.5,0,5.5), "pt"))
 
@@ -247,7 +247,7 @@ regmean <- ggplot(model_results[model_num %in% as.character(c(12:13,16:18))], ae
         coord_flip() + 
         labs(x = "", y = "Difference in rate of annual cognitive decline (Ref: No schooling)") +
         scale_y_continuous(limits = c(-0.102,0), breaks = seq(-.1,0,0.025), oob = oob_keep) +
-        scale_color_manual(name = "", values = c("#6551CC", "#CC5151", "#2C85B2", "#85B22C")) + 
+        scale_color_manual(name = "", values = c("#5CB85C", "#357EBD", "#D43F3A", "#9632B8")) + 
         theme_bw() +
         theme(legend.position = "bottom", plot.margin = unit(c(0,5.5,0,5.5), "pt"))
 
@@ -261,18 +261,24 @@ change_dt <- copy(dt)
 ## data manipulations
 change_dt[, N := .N, by = "prim_key"]
 change_dt[wave == 1, w1_age := age]
-change_dt[, w1_age := mean(w1_age, na.rm = TRUE)]
+change_dt[, w1_age := mean(w1_age, na.rm = TRUE), by = "prim_key"]
 
 ## change covs to be w1 age 
 change_covs <- model_covs
 change_covs <- gsub("age", "w1_age", change_covs)
 
 ## create wide data 
-change_dt <- dcast(as.formula(paste0("prim_key + educ + ", paste0(change_covs, collapse = " + "), " ~ wave")), value.var = "gcp",  data = dt[N==2])
+change_dt <- dcast(as.formula(paste0("prim_key + educ + ", paste0(change_covs, collapse = " + "), " ~ wave")), value.var = "gcp",  data = change_dt[N==2])
 
 ## create change variable 
 change_dt[, change := `2` - `1`]
 
+## create baseline minus baseline mean 
+change_dt[, baseline_demeaned := `1` - mean(`1`, na.rm = TRUE)]
+
 ## run models 
 change_model <- lm(paste0("change ~  educ + ", paste0(change_covs, collapse = " + ")), data = change_dt)
 change_model_adj <- lm(paste0("change ~ `1` + educ + ", paste0(change_covs, collapse = " + ")), data = change_dt)
+change_model_demeaned <- lm(paste0("change ~ baseline_demeaned + educ + ", paste0(change_covs, collapse = " + ")), data = change_dt) ## this is just the same as adjusting for baseline???
+
+secondtime_model_adj <- lm(paste0("`2` ~ `1` + educ + ", paste0(change_covs, collapse = " + ")), data = change_dt)
