@@ -215,7 +215,7 @@ balance_graph <- function(diffs, name = ""){
         geom_hline(yintercept = c(-0.1,0.1), linetype = "dashed") +
         scale_color_manual(name = "", values = c("#103778", "#FF7A48")) +
         coord_flip() +
-        labs(y = "Difference", x = "", title = name) +
+        labs(y = "Difference (Returning sample with practice vs. refresher sample)", x = "", title = name) +
         theme_bw() +
         theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom")
     return(balance_graph)
