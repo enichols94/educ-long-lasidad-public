@@ -52,11 +52,11 @@ surv_dt <- surv_dt[prim_key %in% dt[, unique(prim_key)]] ## only keep those in l
 # ADJUST DATA ----------------------------------------------------------------
 
 ## any school binary variable
-survival_dt[, any_school := as.numeric(!educ == "No school")]
-longitudinal_dt[, any_school := as.numeric(!educ == "No school")]
+surv_dt[, any_school := as.numeric(!educ == "No school")]
+dt[, any_school := as.numeric(!educ == "No school")]
 
 ## add gcp to survival data
-survival_dt <- merge(survival_dt, longitudinal_dt[wave == 1, .(prim_key, gcp)], by = "prim_key", all.x = TRUE)
+surv_dt <- merge(surv_dt, dt[wave == 1, .(prim_key, gcp)], by = "prim_key", all.x = TRUE)
 
 # SIMULATION -----------------------------------------------------------------
 
@@ -68,18 +68,18 @@ survival_dt <- merge(survival_dt, longitudinal_dt[wave == 1, .(prim_key, gcp)], 
 # MODELS TO INFORM SIM --------------------------------------------------------
 
 ## prevalence of any school 
-anyschool_mean <- survival_dt[, mean(any_school)]
+anyschool_mean <- surv_dt[, mean(any_school)]
 
 ## survival
-surv_model <- glm(died ~ gcp*any_school, data = survival_dt, family = binomial(link = "logit"))
+surv_model <- glm(died ~ gcp*any_school, data = surv_dt, family = binomial(link = "logit"))
 survmodel_params <- as.data.table(parameters::model_parameters(surv_model))
 
 ## w1 cog
-w1cog_model <- lm(gcp ~ any_school, data = longitudinal_dt[wave == 1])
+w1cog_model <- lm(gcp ~ any_school, data = dt[wave == 1])
 w1cog_params <- as.data.table(parameters::model_parameters(w1cog_model))
 
 ## w2 cog
-w2cog_dt <- na.omit(dcast.data.table(longitudinal_dt, prim_key + any_school ~ wave, value.var = "gcp", fill = NA))
+w2cog_dt <- na.omit(dcast.data.table(dt, prim_key + any_school ~ wave, value.var = "gcp", fill = NA))
 setnames(w2cog_dt, c("1", "2"), c("w1_cog", "w2_cog"))
 w2cog_model <- lm(w2_cog ~ w1_cog, data = w2cog_dt)
 w2cog_params <- as.data.table(parameters::model_parameters(w2cog_model))
@@ -88,7 +88,7 @@ w2cog_params <- as.data.table(parameters::model_parameters(w2cog_model))
 
 death_effects <- as.data.table(effects::effect("gcp*any_school", surv_model, xlevels = list(gcp=seq(-2,2,0.5), any_school = c(0,1))))
 
-death_extra <- survival_dt[, .(gcp = mean(gcp)), by = "any_school"]
+death_extra <- surv_dt[, .(gcp = mean(gcp)), by = "any_school"]
 death_extra[, death_prob := predict.glm(surv_model, newdata = death_extra, type = "response")]
 death_extra
 
@@ -103,7 +103,7 @@ death_plot <- ggplot() +
     theme_bw() + 
     theme(legend.position = "none")
 
-deathplot_bottom <- ggplot(survival_dt, aes(x = gcp, fill = as.factor(any_school))) +
+deathplot_bottom <- ggplot(surv_dt, aes(x = gcp, fill = as.factor(any_school))) +
     geom_density(alpha = 0.5) +
     labs(x = "Cognition", y = "Density") +
     scale_x_continuous(limits = c(-2,2)) +
@@ -127,7 +127,7 @@ ggsave(paste0(plot_dir, "death_plot_", date, ".pdf"), plot = deathplot_full, wid
 ## function to optimize over 
 interceptopt <- function(intercept, gcp_effect, anyschool_effect, interaction_effect){
     
-    data <- copy(survival_dt)
+    data <- copy(surv_dt)
 
     set.seed(12345)
 
