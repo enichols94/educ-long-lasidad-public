@@ -97,14 +97,28 @@ rm_plot2 <- ggplot(plot_dt, aes(x = `1`, y = change)) +
     geom_point(data = mean_dt, aes(x = mean_baseline, y = mean_change, color = educ, fill = educ), color = "black", shape = 23, size = 3) +
     scale_color_manual(name = "", values = c("#EEA236", "#5CB85C", "#357EBD", "#D43F3A", "#9632B8")) +
     scale_fill_manual(name = "", values = c("#EEA236", "#5CB85C", "#357EBD", "#D43F3A", "#9632B8")) +
+    labs(x = "Wave 1 cognitive functioning", y = "Change in cognitive functioning") +
+    guides(alpha = "none", fill = "none") +
+    theme_bw() + 
+    theme(legend.position = "bottom")
+
+## black and white version 
+rm_plot2_bw <- ggplot(plot_dt, aes(x = `1`, y = change)) + 
+    geom_point(alpha = 0.4) + 
+    geom_hline(yintercept = 0, linetype = "dotdash", color = "black") + 
+    geom_smooth(method = "lm", se = FALSE, color = "black", aes(alpha = 0.2), linewidth = 0.5) + 
     labs(x = "Baseline cognitive functioning", y = "Change in cognitive functioning") +
     guides(alpha = "none", fill = "none") +
     theme_bw() + 
     theme(legend.position = "bottom")
 
-rm_fullplot <- rm_plot1 + rm_plot2 +
+## pull in simulation plot 
+sim_plot <- read_rds(paste0(derived_dir, "simulated_rtm_plot.rds"))
+
+rm_fullplot <- rm_plot2 + sim_plot +
     plot_annotation(tag_levels = ("A"), tag_suffix = ".") +
     plot_layout(nrow = 1, guides = "collect") & theme(legend.position = "bottom")     
 
 ggsave(paste0(plot_dir, "regression_tomean_", date, ".pdf"), plot = rm_fullplot, width = 14, height = 6)
 
+#ggsave(paste0(plot_dir, "regression_tomean_bw_melodem_", date, ".pdf"), plot = rm_plot2_bw, width = 7, height = 6)
