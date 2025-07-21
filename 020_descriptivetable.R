@@ -41,7 +41,7 @@ for (var in c("gcp", "educ", model_covs)){
     dt <- dt[!is.na(get(var))]
 }
 
-design <- dt[!died == 1 & !refused == 1 & !attrited == 1] %>% as_survey_design(ids = 1, weights = full_weight)
+#design <- dt[!died == 1 & !refused == 1 & !attrited == 1] %>% as_survey_design(ids = 1, weights = full_weight)
 
 # CREATE OUTCOME VARIABLE -----------------------------------------------------
 
