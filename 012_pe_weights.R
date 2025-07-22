@@ -1,6 +1,5 @@
 ##########################################################################
 ### Author: Emma Nichols
-### Date: 12/11/2024
 ### Project: LASIDAD Education and longitudinal change
 ### Purpose: Practice effects weights
 ##########################################################################
@@ -15,12 +14,12 @@ set.seed(6541)
 
 # SET OBJECTS -------------------------------------------------------------
 
-dropbox_dir <- "C:/Users/emmanich/P2AGING Dropbox/Emma Nichols/"
-dir <- paste0(dropbox_dir, "projects/educ_long_lasidad/")
-lasi_raw_dir <- paste0(dropbox_dir, "H_LASI/ToUpload/Raw/Data/LASI_w1b_Stata/")
-harmonized_dir <- paste0(dropbox_dir, "Harmonized Data Files/")
-longitudinal_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Preliminary LASI-DAD-Core/")
-exit_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Combined/Data/Clean/")
+dropbox_dir <- "DIR"
+dir <- paste0(dropbox_dir, "DIR")
+lasi_raw_dir <- paste0(dropbox_dir, "DIR")
+harmonized_dir <- paste0(dropbox_dir, "DIR")
+longitudinal_dir <- paste0(dropbox_dir, "DIR")
+exit_dir <- paste0(dropbox_dir, "DIR")
 rawdata_dir <- paste0(dir, "data/source/")
 derived_dir <- paste0(dir, "data/derived/")
 plot_dir <- paste0(dir, "paper/appendix_figs/")

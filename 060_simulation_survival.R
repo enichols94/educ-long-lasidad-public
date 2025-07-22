@@ -1,8 +1,7 @@
 ##########################################################################
 ### Author: Emma Nichols
-### Date: 01/29/2025
-### Project: LASIDAD Educationa and longitudinal change
-### Purpose: Mortality simulation (alternative based on Erik's suggestion) - don't propogate noise from w1 measure
+### Project: LASIDAD Education and longitudinal change
+### Purpose: Mortality simulation
 ##########################################################################
 
 rm(list = ls())
@@ -15,12 +14,12 @@ set.seed(6541)
 
 # SET OBJECTS -------------------------------------------------------------
 
-dropbox_dir <- "C:/Users/emmanich/P2AGING Dropbox/Emma Nichols/"
-dir <- paste0(dropbox_dir, "projects/educ_long_lasidad/")
-lasi_raw_dir <- paste0(dropbox_dir, "H_LASI/ToUpload/Raw/Data/LASI_w1b_Stata/")
-harmonized_dir <- paste0(dropbox_dir, "Harmonized Data Files/")
-longitudinal_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Preliminary LASI-DAD-Core/")
-exit_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Combined/Data/Clean/")
+dropbox_dir <- "DIR"
+dir <- paste0(dropbox_dir, "DIR")
+lasi_raw_dir <- paste0(dropbox_dir, "DIR")
+harmonized_dir <- paste0(dropbox_dir, "DIR")
+longitudinal_dir <- paste0(dropbox_dir, "DIR")
+exit_dir <- paste0(dropbox_dir, "DIR")
 rawdata_dir <- paste0(dir, "data/source/")
 derived_dir <- paste0(dir, "data/derived/")
 plot_dir <- paste0(dir, "paper/mortality_fig/")
@@ -52,11 +51,11 @@ surv_dt <- surv_dt[prim_key %in% dt[, unique(prim_key)]] ## only keep those in l
 # ADJUST DATA ----------------------------------------------------------------
 
 ## any school binary variable
-survival_dt[, any_school := as.numeric(!educ == "No school")]
-longitudinal_dt[, any_school := as.numeric(!educ == "No school")]
+surv_dt[, any_school := as.numeric(!educ == "No school")]
+dt[, any_school := as.numeric(!educ == "No school")]
 
 ## add gcp to survival data
-survival_dt <- merge(survival_dt, longitudinal_dt[wave == 1, .(prim_key, gcp)], by = "prim_key", all.x = TRUE)
+surv_dt <- merge(surv_dt, dt[wave == 1, .(prim_key, gcp)], by = "prim_key", all.x = TRUE)
 
 # SIMULATION -----------------------------------------------------------------
 
@@ -68,18 +67,18 @@ survival_dt <- merge(survival_dt, longitudinal_dt[wave == 1, .(prim_key, gcp)], 
 # MODELS TO INFORM SIM --------------------------------------------------------
 
 ## prevalence of any school 
-anyschool_mean <- survival_dt[, mean(any_school)]
+anyschool_mean <- surv_dt[, mean(any_school)]
 
 ## survival
-surv_model <- glm(died ~ gcp*any_school, data = survival_dt, family = binomial(link = "logit"))
+surv_model <- glm(died ~ gcp*any_school, data = surv_dt, family = binomial(link = "logit"))
 survmodel_params <- as.data.table(parameters::model_parameters(surv_model))
 
 ## w1 cog
-w1cog_model <- lm(gcp ~ any_school, data = longitudinal_dt[wave == 1])
+w1cog_model <- lm(gcp ~ any_school, data = dt[wave == 1])
 w1cog_params <- as.data.table(parameters::model_parameters(w1cog_model))
 
 ## w2 cog
-w2cog_dt <- na.omit(dcast.data.table(longitudinal_dt, prim_key + any_school ~ wave, value.var = "gcp", fill = NA))
+w2cog_dt <- na.omit(dcast.data.table(dt, prim_key + any_school ~ wave, value.var = "gcp", fill = NA))
 setnames(w2cog_dt, c("1", "2"), c("w1_cog", "w2_cog"))
 w2cog_model <- lm(w2_cog ~ w1_cog, data = w2cog_dt)
 w2cog_params <- as.data.table(parameters::model_parameters(w2cog_model))
@@ -88,7 +87,7 @@ w2cog_params <- as.data.table(parameters::model_parameters(w2cog_model))
 
 death_effects <- as.data.table(effects::effect("gcp*any_school", surv_model, xlevels = list(gcp=seq(-2,2,0.5), any_school = c(0,1))))
 
-death_extra <- survival_dt[, .(gcp = mean(gcp)), by = "any_school"]
+death_extra <- surv_dt[, .(gcp = mean(gcp)), by = "any_school"]
 death_extra[, death_prob := predict.glm(surv_model, newdata = death_extra, type = "response")]
 death_extra
 
@@ -103,7 +102,7 @@ death_plot <- ggplot() +
     theme_bw() + 
     theme(legend.position = "none")
 
-deathplot_bottom <- ggplot(survival_dt, aes(x = gcp, fill = as.factor(any_school))) +
+deathplot_bottom <- ggplot(surv_dt, aes(x = gcp, fill = as.factor(any_school))) +
     geom_density(alpha = 0.5) +
     labs(x = "Cognition", y = "Density") +
     scale_x_continuous(limits = c(-2,2)) +
@@ -114,20 +113,14 @@ deathplot_bottom <- ggplot(survival_dt, aes(x = gcp, fill = as.factor(any_school
 deathplot_full <- death_plot + deathplot_bottom + 
     plot_layout(ncol = 1, heights = c(4, 1))
 
-#ggsave(paste0(plot_dir, "death_plot_", date, ".pdf"), plot = deathplot_full, width = 8, height = 6)
+ggsave(paste0(plot_dir, "death_plot_", date, ".pdf"), plot = deathplot_full, width = 8, height = 6)
 
 # CALIBRATE INTERCEPTS ----------------------------------------------------------
-
-# intercept = survmodel_params[Parameter == "(Intercept)", Coefficient]
-# gcp_effect = survmodel_params[Parameter == "gcp", Coefficient]
-# anyschool_effect = survmodel_params[Parameter == "any_school", Coefficient]
-# interaction_effect = survmodel_params[Parameter == "gcp:any_school", Coefficient]
-# sample_size = 2000
 
 ## function to optimize over 
 interceptopt <- function(intercept, gcp_effect, anyschool_effect, interaction_effect){
     
-    data <- copy(survival_dt)
+    data <- copy(surv_dt)
 
     set.seed(12345)
 
@@ -141,8 +134,6 @@ interceptopt <- function(intercept, gcp_effect, anyschool_effect, interaction_ef
     
     return(optSreturn)
 }
-
-# g = gcp_effect; s = anyschool_effect; i = interaction_effect; nrep = 500; Lwin = -3; Uwin = 0
 
 ## do optimization
 optimize_intercept <-function(nrep=500, Lwin=-3, Uwin=-1.5, g, s, i){
@@ -170,17 +161,6 @@ intercept_extreme <- optimize_intercept(nrep=500, Lwin = -2, Uwin = 0, g = log(0
 
 # CREATE SIM FUNCTION -----------------------------------------------------------
 
-# sample_size <- 2000
-# gcp_effect <- log(0.5)
-# anyschool_effect <- log(0.5)
-# interaction_effect <- log(0.5)
-# intercept <- intercept_extreme
-
-# sample_size = 2000; gcp_effect = survmodel_params[Parameter == "gcp", Coefficient]
-# anyschool_effect = survmodel_params[Parameter == "any_school", Coefficient]
-# interaction_effect = survmodel_params[Parameter == "gcp:any_school", Coefficient]
-# intercept = intercept_main
-
 sim_data <- function(sample_size = 2000, intercept = intercept_main, 
                      gcp_effect = survmodel_params[Parameter == "gcp", Coefficient],
                      anyschool_effect = survmodel_params[Parameter == "any_school", Coefficient],
@@ -192,15 +172,13 @@ sim_data <- function(sample_size = 2000, intercept = intercept_main,
     sim_dt[, w1_gcp := w1cog_params[Parameter == "(Intercept)", Coefficient] + 
               w1cog_params[Parameter == "any_school", Coefficient] * any_school + 
               rnorm(sample_size, 0, sigma(w1cog_model))]
-    sim_dt[, w1_gcp_nonoise := w1cog_params[Parameter == "(Intercept)", Coefficient] + 
-              w1cog_params[Parameter == "any_school", Coefficient] * any_school]              
     sim_dt[, w2_gcp := w2cog_params[Parameter == "(Intercept)", Coefficient] + 
-              w2cog_params[Parameter == "w1_cog", Coefficient] * w1_gcp_nonoise + 
+              w2cog_params[Parameter == "w1_cog", Coefficient] * w1_gcp + 
               rnorm(sample_size, 0, sigma(w2cog_model))]
     sim_dt[, prop_died := plogis(intercept + 
-                                 gcp_effect * w1_gcp_nonoise + 
+                                 gcp_effect * w1_gcp + 
                                  anyschool_effect * any_school + 
-                                 interaction_effect * w1_gcp_nonoise * any_school)]
+                                 interaction_effect * w1_gcp * any_school)]
     sim_dt[, died := rbinom(sample_size, size = 1, prob = prop_died)]
 
     ## results to check sim parameterization 
@@ -243,16 +221,12 @@ sim_results_extreme <- rbindlist(pbreplicate(iterations,
                                          interaction_effect = log(0.5)),
                                 simplify = FALSE))
 
-
-
 # PRINT SIMULATION RESULTS -----------------------------------------------------------
 
 ## check simulation parameterization
 sim_results[model == "Base", lapply(.SD, mean), .SDcols = c("prop_anyschool", "cog_anyschool", "w2gcp_w1gcp", "died_w1gcp", "died_anyschool", "died_int", "prop_died")]
 sim_results_extreme[model == "Base", lapply(.SD, mean), .SDcols = c("prop_anyschool", "cog_anyschool", "w2gcp_w1gcp", "died_w1gcp", "died_anyschool", "died_int", "prop_died")]
 anyschool_mean; w1cog_params; w2cog_params; survmodel_params
-
-## this doen't work for this check because this uses the noisier version that isn't used in the variable building process - and if you switch it, then the models don't estimate all the coefficients because it's singular
 
 ## show and save results
 sim_results[, .(mean = mean(int_value), lower = quantile(int_value, 0.025), upper = quantile(int_value, 0.975)), by = "model"]
@@ -263,4 +237,4 @@ all_results <- rbind(
     sim_results_extreme[, .(scenario = "extreme", mean = mean(int_value), lower = quantile(int_value, 0.025), upper = quantile(int_value, 0.975)), by = "model"]
     )
 
-write.xlsx(all_results, paste0(plot_dir, "simulation_results_erikVersion_", date, ".xlsx"))
+write.xlsx(all_results, paste0(plot_dir, "simulation_results_", date, ".xlsx"))

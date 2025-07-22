@@ -1,7 +1,6 @@
 ##########################################################################
 ### Author: Emma Nichols
-### Date: 01/29/2025
-### Project: LASIDAD Educationa and longitudinal change
+### Project: LASIDAD Education and longitudinal change
 ### Purpose: RTM simulation
 ##########################################################################
 
@@ -15,15 +14,15 @@ set.seed(6541)
 
 # SET OBJECTS -------------------------------------------------------------
 
-dropbox_dir <- "C:/Users/emmanich/P2AGING Dropbox/Emma Nichols/"
-dir <- paste0(dropbox_dir, "projects/educ_long_lasidad/")
-lasi_raw_dir <- paste0(dropbox_dir, "H_LASI/ToUpload/Raw/Data/LASI_w1b_Stata/")
-harmonized_dir <- paste0(dropbox_dir, "Harmonized Data Files/")
-longitudinal_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Preliminary LASI-DAD-Core/")
-exit_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Combined/Data/Clean/")
+dropbox_dir <- "DIR"
+dir <- paste0(dropbox_dir, "DIR")
+lasi_raw_dir <- paste0(dropbox_dir, "DIR")
+harmonized_dir <- paste0(dropbox_dir, "DIR")
+longitudinal_dir <- paste0(dropbox_dir, "DIR")
+exit_dir <- paste0(dropbox_dir, "DIR")
 rawdata_dir <- paste0(dir, "data/source/")
 derived_dir <- paste0(dir, "data/derived/")
-plot_dir <- paste0(dir, "paper/mortality_fig/")
+plot_dir <- paste0(dir, "paper/rtm_fig/")
 
 iterations <- 1000
 
@@ -140,7 +139,6 @@ sim_plot <- ggplot(sim_summary, aes(x = as.factor(effect), y = mean, ymin = lowe
     geom_errorbar(width = 0) + 
     geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
     labs(x = "Coefficient estimate (effect of W1 on W2)", y = "Difference in cognitive slope (any education vs. none)") +
-    scale_color_manual(name = "", values = paletteer::paletteer_c("grDevices::Temps", 7)) + 
     theme_bw()
 
 write_rds(sim_plot, paste0(derived_dir, "simulated_rtm_plot.rds"))

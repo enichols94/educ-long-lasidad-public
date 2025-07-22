@@ -1,7 +1,6 @@
 ##########################################################################
 ### Author: Emma Nichols
-### Date: 01/17/2025
-### Project: LASIDAD Educationa and longitudinal change
+### Project: LASIDAD Education and longitudinal change
 ### Purpose: Practice effects analysis
 ##########################################################################
 
@@ -15,12 +14,12 @@ set.seed(6541)
 
 # SET OBJECTS -------------------------------------------------------------
 
-dropbox_dir <- "C:/Users/emmanich/P2AGING Dropbox/Emma Nichols/"
-dir <- paste0(dropbox_dir, "projects/educ_long_lasidad/")
-lasi_raw_dir <- paste0(dropbox_dir, "H_LASI/ToUpload/Raw/Data/LASI_w1b_Stata/")
-harmonized_dir <- paste0(dropbox_dir, "Harmonized Data Files/")
-longitudinal_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Preliminary LASI-DAD-Core/")
-exit_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Combined/Data/Clean/")
+dropbox_dir <- "DIR"
+dir <- paste0(dropbox_dir, "DIR")
+lasi_raw_dir <- paste0(dropbox_dir, "DIR")
+harmonized_dir <- paste0(dropbox_dir, "DIR")
+longitudinal_dir <- paste0(dropbox_dir, "DIR")
+exit_dir <- paste0(dropbox_dir, "DIR")
 rawdata_dir <- paste0(dir, "data/source/")
 derived_dir <- paste0(dir, "data/derived/")
 plot_dir <- paste0(dir, "paper/practiceeffects_fig/")
@@ -41,7 +40,7 @@ simple_vars <- pe_map[!grepl("\\*", variable), variable]
 simple_vars_newname <- pe_map[variable %in% simple_vars, label]
 long_vars <- pe_map[!variable %in% simple_vars, variable]
 
-## FIX INCONSISTENT VARIABLES - MAKE CONSISTENT ACROSS WAVES (despite administration differences)
+## MAKE NAMES CONSISTENT (since only using W2 data)
 setnames(practice_dt, c("r1sc_scorep", "r2sc_scoret", "r1hammer1", "r2hammer2"), 
                       c("r1sc_score", "r2sc_score", "r1hammer", "r2hammer"))
 
@@ -73,7 +72,7 @@ practice_dt <- merge(practice_dt[, ..simple_vars_newname], all_long, by = "prim_
 ## MERGE WAVE 2 ONTO PRACTICE EFFECTS DATA 
 practice_dt <- practice_dt[wave == 2 & status %in% 1:2]
 practice_dt[, c("status", "wave") := NULL]
-pe_dt[, c("wr_delayed", "lm_delayed", "animals", "con_praxis", "ravens") := NULL] ## get rid of all cognitive tests (with imputations)
+pe_dt[, c("wr_delayed", "lm_delayed", "animals", "con_praxis", "ravens") := NULL] 
 practice_dt <- merge(pe_dt, practice_dt, by = "prim_key", all.x = TRUE)
 
 ## CREATE NAMING VARIABLE 

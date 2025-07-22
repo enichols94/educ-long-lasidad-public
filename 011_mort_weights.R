@@ -1,8 +1,7 @@
 ##########################################################################
 ### Author: Emma Nichols
-### Date: 12/11/2024
 ### Project: LASIDAD Education and longitudinal change
-### Purpose: Attrition and death weights
+### Purpose: Mortality weights
 ##########################################################################
 
 rm(list = ls())
@@ -15,12 +14,12 @@ set.seed(6541)
 
 # SET OBJECTS -------------------------------------------------------------
 
-dropbox_dir <- "C:/Users/emmanich/P2AGING Dropbox/Emma Nichols/"
-dir <- paste0(dropbox_dir, "projects/educ_long_lasidad/")
-lasi_raw_dir <- paste0(dropbox_dir, "H_LASI/ToUpload/Raw/Data/LASI_w1b_Stata/")
-harmonized_dir <- paste0(dropbox_dir, "Harmonized Data Files/")
-longitudinal_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Preliminary LASI-DAD-Core/")
-exit_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Combined/Data/Clean/")
+dropbox_dir <- "DIR"
+dir <- paste0(dropbox_dir, "DIR")
+lasi_raw_dir <- paste0(dropbox_dir, "DIR")
+harmonized_dir <- paste0(dropbox_dir, "DIR")
+longitudinal_dir <- paste0(dropbox_dir, "DIR")
+exit_dir <- paste0(dropbox_dir, "DIR")
 rawdata_dir <- paste0(dir, "data/source/")
 derived_dir <- paste0(dir, "data/derived/")
 plot_dir <- paste0(dir, "plots/")
@@ -140,83 +139,11 @@ death_model <- glm(as.formula(paste0("died ~", paste(death_reg_covs, collapse = 
                     data = dt, family = binomial(link = "logit"))
 death_auc1 <- auc(roc(response = dt[, died], predictor = predict(death_model, type = "response")))
 
-# MODEL ATTRITION -----------------------------------------------------------
-
-attrition_reg_covs <- reg_covs
-
-attrition_model0 <- glm(as.formula(paste0("attrited ~", paste(attrition_reg_covs, collapse = " + "))),
-                    data = dt[died == 0], family = binomial(link = "logit"))
-attrition_auc0 <- auc(roc(response = dt[died == 0, attrited], predictor = predict(attrition_model0, type = "response")))
-
-## coefficients to test
-test_covs <- attrition_reg_covs[!grepl("_ind$", attrition_reg_covs)]
-
-## test whether quadratic terms are beneficial
-attrition_quadratic_models <- data.table()
-for (cov in test_covs){
-  if (dt[, class(get(cov))] == "numeric" & dt[, length(unique(get(cov)))] > 10){
-    print(cov)
-    attrition_model_test <- update(attrition_model0, as.formula(paste0(".~. + I(", cov, "^2)")))
-    anova_val <- anova(attrition_model0, attrition_model_test, test = "Chisq")
-
-    ## if significant anova - save effect and add to attrition_reg_covs
-    if (anova_val$`Pr(>Chi)`[2] < 0.1){
-      attrition_reg_covs <- c(attrition_reg_covs, paste0("I(", cov, "^2)"))
-      params <- as.data.table(parameters::model_parameters(attrition_model_test, ci_method = "wald"))
-      params[, quadratic_var := cov]
-      attrition_quadratic_models <- rbind(attrition_quadratic_models, params)
-    }
-  }
-} 
-
-## test whether gender interactions are beneficial
-attrition_gender_models <- data.table()
-for (cov in test_covs[!test_covs == "female"]){
-  print(cov)
-  attrition_model_test <- update(attrition_model0, as.formula(paste0(".~. + female:", cov)))
-  anova_val <- anova(attrition_model0, attrition_model_test, test = "Chisq")
-
-  ## if significant anova - save effect and add to attrition_reg_covs
-  if (anova_val$`Pr(>Chi)`[2] < 0.1){
-    attrition_reg_covs <- c(attrition_reg_covs, paste0("female:", cov))
-    params <- as.data.table(parameters::model_parameters(attrition_model_test, ci_method = "wald"))
-    params[, gender_var := cov]
-    attrition_gender_models <- rbind(attrition_gender_models, params)
-  }
-} 
-
-## test whether rural interactions are beneficial
-attrition_rural_models <- data.table()
-for (cov in test_covs[!test_covs == "rural"]){
-  print(cov)
-  attrition_model_test <- update(attrition_model0, as.formula(paste0(".~. + rural:", cov)))
-  anova_val <- anova(attrition_model0, attrition_model_test, test = "Chisq")
-
-  ## if significant anova - save effect and add to attrition_reg_covs
-  if (anova_val$`Pr(>Chi)`[2] < 0.1){
-    attrition_reg_covs <- c(attrition_reg_covs, paste0("rural:", cov))
-    params <- as.data.table(parameters::model_parameters(attrition_model_test, ci_method = "wald"))
-    params[, rural_var := cov]
-    attrition_rural_models <- rbind(attrition_rural_models, params)
-  }
-} 
-
-attrition_model <- glm(as.formula(paste0("attrited ~", paste(attrition_reg_covs, collapse = " + "))),
-                    data = dt[died == 0], family = binomial(link = "logit"))
-attrition_auc1 <- auc(roc(response = dt[died == 0, attrited], predictor = predict(attrition_model, type = "response")))
-
 # CALCULATE WEIGHTS -----------------------------------------------------------
 
 dt[, death_num := (died)*dt[, mean(died)] + (1-died)*dt[, 1-mean(died)]]
 dt[, death_den := (died)*(predict(death_model, type = "response")) + (1-died)*(1-predict(death_model, type = "response"))]
 dt[, death_weight := death_num/death_den]
-
-dt[died == 0, attrition_num := (attrited)*(dt[died == 0, mean(attrited)]) + (1-attrited)*(dt[died == 0, 1-mean(attrited)])]
-dt[died == 0, attrition_den := (attrited)*predict(attrition_model, type = "response") + (1-attrited)*(1-predict(attrition_model, type = "response"))]
-dt[died == 0, attrition_weight := attrition_num/attrition_den]
-
-dt[died == 0 & attrited == 0, combo_weight := death_weight * attrition_weight]
-dt[died == 0 & attrited == 0, full_weight := death_weight * attrition_weight * weight_w1]
 
 dt[, no_weight := 1]
 
@@ -269,10 +196,6 @@ diff_covs <- covs[!covs == "statef"]
 
 death_diffs <- rbindlist(lapply(diff_covs, function(x) get_meandiff(var = x, dt_full = dt, dt_selected = dt[died == 0],
                                                                     w = "death_weight")), fill = T, use.names = T)
-attrition_diffs <- rbindlist(lapply(diff_covs, function(x) get_meandiff(var = x, dt_full = dt[died == 0], dt_selected = dt[died == 0 & attrited == 0],
-                                                                    w = "attrition_weight")), fill = T, use.names = T)
-full_diffs <- rbindlist(lapply(diff_covs, function(x) get_meandiff(var = x, dt_full = dt, dt_selected = dt[died == 0 & attrited == 0],
-                                                                    w = "combo_weight")), fill = T, use.names = T)
 
 # CREATE BALANCE GRAPHS -----------------------------------------------------------
 
@@ -300,22 +223,20 @@ balance_graph <- function(diffs, name = ""){
 }
 
 death_balance <- balance_graph(death_diffs, name = "Death")
-attrition_balance <- balance_graph(attrition_diffs, name = "Attrition")
-combo_balance <- balance_graph(full_diffs, name = "Death + Attrition")
 
 pdf(paste0(plot_dir, "balance_plots_", date, ".pdf"), height = 8, width = 8)
-death_balance; attrition_balance; combo_balance
+death_balance
 dev.off()
 
 ggsave(paste0(appendix_dir, "mortality_balance_plot_", date, ".pdf"), plot = death_balance, width = 8, height = 8)
 
 # ADD WEIGHT TO DATA -----------------------------------------------------------
 
-weight_dt <- copy(dt[, .(prim_key, death_weight, attrition_weight, combo_weight, full_weight)])
+weight_dt <- copy(dt[, .(prim_key, death_weight)])
 
 survival_dt <- merge(survival_dt, weight_dt, by = "prim_key")
 longitudinal_dt <- merge(longitudinal_dt, weight_dt, by = "prim_key")
-longitudinal_dt[wave == 1, c("death_weight", "attrition_weight", "combo_weight", "full_weight") := weight_w1]
+longitudinal_dt[wave == 1, c("death_weight") := 1]
 
 write_rds(list(survival = survival_dt, longitudinal = longitudinal_dt), 
           paste0(derived_dir, "processed_data_weights.rds"))

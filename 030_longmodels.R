@@ -1,8 +1,7 @@
 ##########################################################################
 ### Author: Emma Nichols
-### Date: 12/11/2024
-### Project: LASIDAD Educationa and longitudinal change
-### Purpose: Mixed effects models
+### Project: LASIDAD Education and longitudinal change
+### Purpose: Estimate models for comparisons
 ##########################################################################
 
 rm(list = ls())
@@ -13,16 +12,14 @@ pacman::p_load(data.table, openxlsx, haven, readr, dplyr, magrittr, stringr,
 date <- gsub("-", "_", Sys.Date())
 set.seed(6541)
 
-## add gender to stratifications
-
 # SET OBJECTS -------------------------------------------------------------
 
-dropbox_dir <- "C:/Users/emmanich/P2AGING Dropbox/Emma Nichols/"
-dir <- paste0(dropbox_dir, "projects/educ_long_lasidad/")
-lasi_raw_dir <- paste0(dropbox_dir, "H_LASI/ToUpload/Raw/Data/LASI_w1b_Stata/")
-harmonized_dir <- paste0(dropbox_dir, "Harmonized Data Files/")
-longitudinal_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Preliminary LASI-DAD-Core/")
-exit_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Combined/Data/Clean/")
+dropbox_dir <- "DIR"
+dir <- paste0(dropbox_dir, "DIR")
+lasi_raw_dir <- paste0(dropbox_dir, "DIR")
+harmonized_dir <- paste0(dropbox_dir, "DIR")
+longitudinal_dir <- paste0(dropbox_dir, "DIR")
+exit_dir <- paste0(dropbox_dir, "DIR")
 rawdata_dir <- paste0(dir, "data/source/")
 derived_dir <- paste0(dir, "data/derived/")
 plot_dir <- paste0(dir, "paper/model_sensitivities_fig/")
@@ -66,18 +63,16 @@ m0 <- lmer(as.formula(m0_form), data = dt)
 ## weighted gee models
 m1_form <- paste0("gcp ~ educ + educ*time + ", paste0(model_covs, collapse = "*time + "), "*time")
 m1 <- geepack::geeglm(as.formula(m1_form), data = dt, id = dt[, prim_key], family = gaussian, corstr = "exchangeable", weights = dt[, death_weight]) ## only include death weight
-m2 <- geepack::geeglm(as.formula(m1_form), data = dt, id = dt[, prim_key], family = gaussian, corstr = "exchangeable", weights = dt[, weight_w1*attrition_weight])
-m3 <- geepack::geeglm(as.formula(m1_form), data = dt, id = dt[, prim_key], family = gaussian, corstr = "exchangeable", weights = dt[, full_weight])
 
 ## joint model
 message("Joint model further excludes ", length(surv_dt[attrited == 1]), " individuals")
-m4_form_l <- gsub("prim_key", "id", m0_form)
-m4_form_s <- paste0("inla.surv(time_elapsed, died) ~ educ + ", paste0(model_covs, collapse = " + "))
+m2_form_l <- gsub("prim_key", "id", m0_form)
+m2_form_s <- paste0("inla.surv(time_elapsed, died) ~ educ + ", paste0(model_covs, collapse = " + "))
 joint_dt <- copy(dt[order(prim_key, wave) & !prim_key %in% surv_dt[attrited == 1, unique(prim_key)]]) ## for joint models get data, sort, and create new ID
 joint_surv_dt <- copy(surv_dt[order(prim_key) & !attrited == 1])
 joint_surv_dt[, id := 1:.N]
 joint_dt <- merge(joint_dt, joint_surv_dt[, .(prim_key, id)], by = "prim_key")    
-m4 <- joint(formSurv = as.formula(m4_form_s), formLong = as.formula(m4_form_l), family = "normal", 
+m2 <- joint(formSurv = as.formula(m2_form_s), formLong = as.formula(m2_form_l), family = "normal", 
             dataLong = joint_dt, dataSurv = joint_surv_dt, 
             id = "id", timeVar = "time_elapsed", assoc = "CV", 
             basRisk  = "rw2", NbasRisk=10, control=list(int.strategy="eb"))
@@ -87,31 +82,28 @@ get_model <- function(model_data){
     return(lmer(as.formula(m0_form), data = model_data))
 }
 
-m5 <- get_model(dt[age_group == "60-69"]); m6 <- get_model(dt[age_group == "70-79"]); m7 <- get_model(dt[age_group == "80+"])
-m8 <- get_model(dt[rural == 0]); m9 <- get_model(dt[rural == 1])
-m10 <- get_model(dt[female == 0]); m11 <- get_model(dt[female == 1])
-m12 <- get_model(dt[above_w1medcog == 0]); m13 <- get_model(dt[above_w1medcog == 1])
-m14 <- get_model(dt[above_w2medfu == 0]); m15 <- get_model(dt[above_w2medfu == 1])
-m16 <- get_model(dt[cdr == "Normal"]); m17 <- get_model(dt[cdr == "MCI/Questionnable"]); m18 <- get_model(dt[cdr == "Dementia"])
+m3 <- get_model(dt[age_group == "60-69"]); m4 <- get_model(dt[age_group == "70-79"]); m5 <- get_model(dt[age_group == "80+"])
+m6 <- get_model(dt[rural == 0]); m7 <- get_model(dt[rural == 1])
+m8 <- get_model(dt[female == 0]); m9 <- get_model(dt[female == 1])
 
 ## quantile regression
-m19 <- quantreg::rq(as.formula(m1_form), data = dt, tau = c(0.1,0.25,0.5,0.75, 0.9))
-m19_params <- summary(m19, se = "boot", cluster = dt[, prim_key]) ## https://ideas.repec.org/a/taf/jnlasa/v112y2017i517p446-456.html
+m10 <- quantreg::rq(as.formula(m1_form), data = dt, tau = c(0.1,0.25,0.5,0.75, 0.9))
+m10_params <- summary(m10, se = "boot", cluster = dt[, prim_key]) ## https://ideas.repec.org/a/taf/jnlasa/v112y2017i517p446-456.html
 
 ## individual test items
 get_model_item <- function(outcome_item){
     return(lmer(as.formula(gsub("gcp", outcome_item, m0_form)), data = dt))
 }
 
-m20 <- get_model_item("memory"); m21 <- get_model_item("executive"); m22 <- get_model_item("language"); m23 <- get_model_item("visuospatial")
-m24 <- get_model_item("wr_delayed"); m25 <- get_model_item("lm_delayed"); m26 <- get_model_item("animals"); m27 <- get_model_item("con_praxis"); m28 <- get_model_item("ravens")
+m11 <- get_model_item("memory"); m12 <- get_model_item("executive"); m13 <- get_model_item("language"); m14 <- get_model_item("visuospatial")
+m15 <- get_model_item("wr_delayed"); m16 <- get_model_item("lm_delayed"); m17 <- get_model_item("animals"); m18 <- get_model_item("con_praxis"); m19 <- get_model_item("ravens")
 
 # FORMAT MODEL RESULTS -----------------------------------------------------------
 
 get_coefficients <- function(model_num){
     model <- get(paste0("m", model_num))
 
-    if (model_num == 4){ ## alternative for joint model (m4)
+    if (model_num == 2){ ## alternative for joint model (m4)
         params <- summary(model)$FixedEff[[1]]
         param_select <- grepl("^educ.*\\:time_L1$", rownames(params))
         result_dt <- data.table(model_num = model_num, 
@@ -119,8 +111,8 @@ get_coefficients <- function(model_num){
                                 estimate = params[param_select, "mean"], 
                                 lower = params[param_select, "0.025quant"], 
                                 upper = params[param_select, "0.975quant"])
-    } else if (model_num == 19){ ## alternative for quantile regression (m19)
-        params <- m19_params
+    } else if (model_num == 10){ ## alternative for quantile regression (m10)
+        params <- m10_params
 
         get_coef <- function(tau_num){
             selected <- params[[tau_num]]
@@ -149,7 +141,7 @@ get_coefficients <- function(model_num){
     return(result_dt)
 }
 
-model_results <- rbindlist(lapply(0:28, get_coefficients))
+model_results <- rbindlist(lapply(0:19, get_coefficients))
 
 # FORMAT GRAPH DATA -----------------------------------------------------------
 
@@ -161,16 +153,12 @@ model_results[, educ_cat := gsub("educ", "", parameter)][, educ_cat := gsub(":ti
 
 ## merge on labels and categories
 label_dt <- data.table(model_num = model_results[, unique(model_num)], 
-                       labels = c("Mixed effects model (base)", "Weighted GEE model (death)", "Weighted GEE model (survey + attrition)", 
-                                  "Weighted GEE model (survey + death + attrition)", "Joint model", "Age (60-69)", "Age (70-79)", 
+                       labels = c("Mixed effects model (base)", "Weighted GEE model (death)", "Joint model", "Age (60-69)", "Age (70-79)", 
                                   "Age (80+)", "Urbanicity (rural)", "Urbanicity (urban)", "Gender (men)", "Gender (women)",
-                                  "W1 cognition (below median W1 cog)", "W1 cognition (above median W1 cog)", 
-                                  "W2 follow-up (below median follow-up)", "W2 follow-up (above median follow-up)", 
-                                  "W1 CDR (normal)", "W1 CDR (MCI/Questionable)", "W1 CDR (dementia)",
                                   "10th percentile", "25th percentile", "50th percentile", "75th percentile", "90th percentile",
                                   "Memory", "Executive functioning", "Language", "Visuospatial functioning", 
                                   "Delayed word recall", "Delayed story recall (logical memory)", "Animal naming", "Constructional praxis", "Raven's progressive matrices"), 
-                       category = c(rep("Base",5), rep("Stratified", 14), rep("Quantiles", 5), rep("Other cognitive outcomes", 9)))
+                       category = c(rep("Base",3), rep("Stratified", 7), rep("Quantiles", 5), rep("Other cognitive outcomes", 9)))
 label_dt[, labels := factor(labels, levels = rev(label_dt[, labels]))]                       
 model_results <- merge(model_results, label_dt, by = "model_num", sort = FALSE)
 
@@ -180,7 +168,7 @@ model_results[labels == "Mixed effects model (base)"]
 # MAKE GRAPHS -----------------------------------------------------------
 
 ## initial sensitivities
-graph1_models <- c(0,5:11,paste0("19 - ", c(0.1,0.25,0.5,0.75,0.9)), 20:28) ## models to include in the first graph 
+graph1_models <- c(0,3:9,paste0("10 - ", c(0.1,0.25,0.5,0.75,0.9)), 11:19) ## models to include in the first graph 
 
 get_graphs <- function(c){
     plot <- ggplot(model_results[category == c & model_num %in% graph1_models], aes(x = labels, y = estimate, ymin = lower, ymax = upper, color = educ_cat)) +
@@ -224,7 +212,7 @@ full_plot <- plots[[1]] + labels[[1]] + plots[[2]] + labels[[2]] + plots[[3]] + 
 ggsave(paste0(plot_dir, "regression_comparison_", date, ".pdf"), plot= full_plot, height = 8, width = 15)
 
 ## mortality models for appendix
-mortplot <- ggplot(model_results[category == "Base" & model_num %in% c(0,1,4)], aes(x = labels, y = estimate, ymin = lower, ymax = upper, color = educ_cat)) +
+mortplot <- ggplot(model_results[category == "Base" & model_num %in% c(0:2)], aes(x = labels, y = estimate, ymin = lower, ymax = upper, color = educ_cat)) +
         geom_point() +
         geom_errorbar(width = 0.1) + 
         geom_hline(yintercept = 0, linetype = "dashed") +
@@ -237,48 +225,3 @@ mortplot <- ggplot(model_results[category == "Base" & model_num %in% c(0,1,4)], 
         theme(legend.position = "bottom", plot.margin = unit(c(0,5.5,0,5.5), "pt"))
 
 ggsave(paste0(appendix_dir, "mortality_regression_comparison_", date, ".pdf"), plot= mortplot, height = 3, width = 14)
-
-## regression to the mean models for appendix 
-regmean <- ggplot(model_results[model_num %in% as.character(c(12:13,16:18))], aes(x = labels, y = estimate, ymin = lower, ymax = upper, color = educ_cat)) +
-        geom_point() +
-        geom_errorbar(width = 0.1) + 
-        geom_hline(yintercept = 0, linetype = "dashed") +
-        facet_wrap(~educ_cat, nrow = 1) + 
-        coord_flip() + 
-        labs(x = "", y = "Difference in rate of annual cognitive decline (Ref: No schooling)") +
-        scale_y_continuous(limits = c(-0.102,0), breaks = seq(-.1,0,0.025), oob = oob_keep) +
-        scale_color_manual(name = "", values = c("#5CB85C", "#357EBD", "#D43F3A", "#9632B8")) + 
-        theme_bw() +
-        theme(legend.position = "bottom", plot.margin = unit(c(0,5.5,0,5.5), "pt"))
-
-ggsave(paste0(appendix_dir, "regmean_regression_comparison_", date, ".pdf"), plot= regmean, height = 3, width = 14)
-
-
-# EXPLORE CHANGE MODELS -----------------------------------------------------------
-
-change_dt <- copy(dt) 
-
-## data manipulations
-change_dt[, N := .N, by = "prim_key"]
-change_dt[wave == 1, w1_age := age]
-change_dt[, w1_age := mean(w1_age, na.rm = TRUE), by = "prim_key"]
-
-## change covs to be w1 age 
-change_covs <- model_covs
-change_covs <- gsub("age", "w1_age", change_covs)
-
-## create wide data 
-change_dt <- dcast(as.formula(paste0("prim_key + educ + ", paste0(change_covs, collapse = " + "), " ~ wave")), value.var = "gcp",  data = change_dt[N==2])
-
-## create change variable 
-change_dt[, change := `2` - `1`]
-
-## create baseline minus baseline mean 
-change_dt[, baseline_demeaned := `1` - mean(`1`, na.rm = TRUE)]
-
-## run models 
-change_model <- lm(paste0("change ~  educ + ", paste0(change_covs, collapse = " + ")), data = change_dt)
-change_model_adj <- lm(paste0("change ~ `1` + educ + ", paste0(change_covs, collapse = " + ")), data = change_dt)
-change_model_demeaned <- lm(paste0("change ~ baseline_demeaned + educ + ", paste0(change_covs, collapse = " + ")), data = change_dt) ## this is just the same as adjusting for baseline???
-
-secondtime_model_adj <- lm(paste0("`2` ~ `1` + educ + ", paste0(change_covs, collapse = " + ")), data = change_dt)

@@ -1,6 +1,5 @@
 ##########################################################################
 ### Author: Emma Nichols
-### Date: 06/03/2024
 ### Project: LASIDAD Education - cog decline
 ### Purpose: Data Prep 
 ##########################################################################
@@ -14,14 +13,14 @@ set.seed(6541)
 
 # SET OBJECTS -------------------------------------------------------------
 
-dropbox_dir <- "C:/Users/emmanich/P2AGING Dropbox/Emma Nichols/"
-dir <- paste0(dropbox_dir, "projects/educ_long_lasidad/")
-lasi_raw_dir <- paste0(dropbox_dir, "H_LASI/ToUpload/Raw/Data/LASI_w1b_Stata/")
-lasidad_w1_dir <- paste0(dropbox_dir, "H_DAD/VerA.3/")
-harmonized_dir <- paste0(dropbox_dir, "Harmonized Data Files/")
-longitudinal_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Preliminary LASI-DAD-Core/")
-biomarker_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Preliminary LASI-DAD-Biomarker/")
-exit_dir <- paste0(dropbox_dir, "H_DAD/Raw_wave2/Combined/Data/Clean/")
+dropbox_dir <- "DIR"
+dir <- paste0(dropbox_dir, "DIR")
+lasi_raw_dir <- paste0(dropbox_dir, "DIR")
+lasidad_w1_dir <- paste0(dropbox_dir, "DIR")
+harmonized_dir <- paste0(dropbox_dir, "DIR")
+longitudinal_dir <- paste0(dropbox_dir, "DIR")
+biomarker_dir <- paste0(dropbox_dir, "DIR")
+exit_dir <- paste0(dropbox_dir, "DIR")
 rawdata_dir <- paste0(dir, "data/source/")
 derived_dir <- paste0(dir, "data/derived/")
 
@@ -217,8 +216,6 @@ for (var in ftests){
     var_sd <- long_dt[wave == 2, sd(get(var), na.rm = TRUE)]
     long_dt[, c(var) := (get(var)-var_mean)/var_sd]
 }
-
-## only missing data is from person with unimputed data in wave 2
 
 # PREP LASI VARIABLES ----------------------------------------------------------------
 
