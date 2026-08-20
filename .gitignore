@@ -1,0 +1,29 @@
+# Local R state and environment configuration
+.Renviron
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+
+# Controlled and user-provided inputs
+data/source/**
+!data/source/.gitkeep
+
+# Derived participant-level data and generated simulation objects
+data/derived/**
+!data/derived/.gitkeep
+
+# Generated analysis products
+plots/**
+paper/appendix_figs/**
+paper/model_sensitivities_fig/**
+paper/practiceeffects_fig/**
+paper/simulation_fig/**
+paper/table1/**
+paper/trajectories_fig/**
+
+# Common editor and operating-system files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
