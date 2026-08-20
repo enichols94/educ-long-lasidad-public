@@ -1,13 +1,12 @@
 # Education and longitudinal cognitive change in LASI-DAD
 
 This repository contains the R analysis code for a study of education and
-longitudinal cognitive change using LASI and LASI-DAD data. The analysis was
-developed by Emma Nichols.
+longitudinal cognitive change using LASI and LASI-DAD data. 
 
-The repository contains code only. Controlled participant data, variable maps,
-and two externally created simulation panels are not distributed here. Obtain
-all required data through the relevant data custodians and comply with their
-terms of use.
+The paper is available here: https://academic.oup.com/aje/article/195/6/1596/8426103
+
+The repository contains code only. Data, variable maps,
+and two externally created simulation panels are not distributed here. 
 
 ## Configuration
 
@@ -20,20 +19,11 @@ HARMONIZED_DATA_DIR=<PATH_TO_HARMONIZED_DATA>
 LASIDAD_EXIT_DIR=<PATH_TO_LASIDAD_EXIT_DATA>
 ```
 
-Do not commit local environment settings. Repository-managed source inputs go
+Repository-managed source inputs go
 in `<SOURCE_DATA_DIRECTORY>`, intermediate objects go in
 `<DERIVED_DATA_DIRECTORY>`, and figures and tables are written below
 `<OUTPUT_DIRECTORY>`. These labels are placeholders, not real filesystem
 locations.
-
-### Required controlled-data files
-
-The configured controlled-data directories must contain these files:
-
-- `lasi_w1b_ind_bm.dta`
-- `H_LASI_a3.dta`
-- `h_dad_w1a3.dta`
-- `dad_exit_clean.dta`
 
 ### Required user-provided files
 
@@ -92,7 +82,3 @@ The scripts are numbered by analysis family, but one dependency requires script
 - `050_simulation_structure1.R` and `051_simulation_structure2.R` create the two
   simulation result plot objects.
 - `052_simulation_plot.R` assembles the final four-panel simulation figure.
-
-Generated files and participant-level inputs are intentionally ignored by Git.
-The analysis uses fixed random seeds where simulations or imputations are
-performed.
